@@ -1,0 +1,118 @@
+UPDATE:
+
+
+0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |    Type = 8   |    Length     |       AE      |    Flags      |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |     Plen      |    Omitted    |            Interval           |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |             Seqno             |            Metric             |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |      Prefix...
+   +-+-+-+-+-+-+-+-+-+-+-+-
+
+
+AE:
+Normal:
+
+   o  AE 0: wildcard address.  The value is 0 octets long.
+
+   o  AE 1: IPv4 address.  Compression is allowed. 4 octets or less.
+
+   o  AE 2: IPv6 address.  Compression is allowed. 16 octets or less.
+
+   o  AE 3: link-local IPv6 address.  The value is 8 octets long, a
+      prefix of fe80::/64 is implied.
+
+Tos-specific: 
+
+On utilise les 6 premiers bits pour coder le ToS. Les deux bits suivants sont comme pour Babel non Tos-specific.
+C'est nul parce qu'il n'y a aucune indication qu'on fait du Tos-specific. Du coup personne d'autre ne pourra utiliser ces bits.
+
+
+
+
+
+Metric: 
+Normalement C(A, B) = somme des couts des aretes du chemin entre A et B
+On utilise quand même Metric pour indiquer le cout du ToS (qui servira au noeud receveur à choisir entre 2 routes à haute sécurité par exemple
+
+
+
+
+ROUTE REQUEST:
+
+0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |    Type = 9   |    Length     |      AE       |     Plen      |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |      Prefix...
+   +-+-+-+-+-+-+-+-+-+-+-+-
+
+
+
+SEQNO REQUEST:
+
+0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |    Type = 10  |    Length     |      AE       |    Plen       |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |             Seqno             |  Hop Count    |   Reserved    |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                          Router-Id                            +
+   |                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Prefix...
+   +-+-+-+-+-+-+-+-+-+-+
+
+
+
+
+HELLO et IHU :
+Les utilisations des messages HELLO et IHU sont inchangées. 
+Ils peuvent être utilisés pour calculer les couts des ToS (par exemple pour savoir si un lien est fiable ou non).
+Cette partie n'est pas décrite car ça dépend de l'implémenteur.
+
+
+
+
+Les tables de routage:
+Les tables de routage sont indexées par (pr
+efix, ToS) - enfin en vrai c'est linux qui fait ce qu'il veut. 
+Mais quand on a un paquet à router, pour un préfie p et un ToS t, on utilise le next-hop présent dans la table de routage correspondant à (p, t)
+
+
+
+Périodiquement, chaque noeud B envoie un message à tous ses voisins contenant D(t, B) (à la même période qu'il envoie le route update normal. y'a pas de raison à ça, 
+mais la période est surement déjà très bien choisie et il n'y a pas deraison de la changer)
+Attention aux triggered updates
+Quand A reçoit ce message, si la métrique est meilleure, alors il change sa table de routage à l'entrée (p, t)
+Les noeuds peuvent garder des routes alternatives (de second choix) à utiliser si leur route préférée n'est pas disponible (comme pour le non-tos-specific)
+
+
+
+STARVATION:
+Quand un noeud avait une route ToS-specific pour un préfixe et un ToS mais qu'il la perd, alors il envoie un SEQNO REQUEST (le SEQNO sera spécifique au ToS - c'est un peu nul parce que ça enlève toutes les sources qui parlent pas le ToS-specific alors que concrètement elle devraient pas avoir besoin de le parler puisque ce n'est que les routeurs, mais sinon on va augmenter beaucoup trop le SEQNO classique. En plus, si d'autres extensions font comme ça, ça va augmenter vraiment très très vite. c'est nul.)
+en fait non, quand on a plus de route (ssi on l'a perdue) alors on demande un nouveau seqno à la source
+à part ça, les SEQno c'est pareil.
+
+
+
+--->> CA SERT A QUOI D'ACCEPTER PLUS DE ROUTES? 
+ça veut dire quoi "accepter"? si ça veut dire ajouter à sa table de routage, ça va faire du flapping, non?
+
+
+
+"wever, if the network is still connected,
+   then at least one among the nodes suffering from spurious starvation
+   has an (unfeasible) route to the source"
+si j'ai bien compris, c'est pas une "route", si?
+--->>> les seqno requests ne vont pas faire de boucles, si??
+
+
+
