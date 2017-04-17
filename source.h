@@ -28,6 +28,7 @@ struct source {
     unsigned char plen;
     unsigned char src_prefix[16];
     unsigned char src_plen;
+    unsigned char tos;
     unsigned short seqno;
     unsigned short metric;
     unsigned short route_count;
