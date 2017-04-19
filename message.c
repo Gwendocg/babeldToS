@@ -571,9 +571,11 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                    shortly after we sent a full update. */
                 if(neigh->ifp->last_update_time <
                    now.tv_sec - MAX(neigh->ifp->hello_interval / 100, 1))
-                    send_update(neigh->ifp, 0, NULL, 0, zeroes, 0);
+ /*TODO*/
+                    send_update(neigh->ifp, 0, NULL, 0, zeroes, 0, '\0');
             } else {
-                send_update(neigh->ifp, 0, prefix, plen, zeroes, 0);
+ /*TODO*/
+                send_update(neigh->ifp, 0, prefix, plen, zeroes, 0, '\0');
             }
         } else if(type == MESSAGE_MH_REQUEST) {
             unsigned char prefix[16], plen;
@@ -691,13 +693,15 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 send_ihu(neigh, NULL);
                 if(neigh->ifp->last_specific_update_time <
                    now.tv_sec - MAX(neigh->ifp->hello_interval / 100, 1))
-                    send_update(neigh->ifp, 0, zeroes, 0, NULL, 0);
+ /*TODO*/
+                    send_update(neigh->ifp, 0, zeroes, 0, NULL, 0, '\0');
             } else {
                 debugf("Received request for (%s from %s) from %s on %s.\n",
                        format_prefix(prefix, plen),
                        format_prefix(src_prefix, src_plen),
                        format_address(from), ifp->name);
-                send_update(neigh->ifp, 0, prefix, plen, src_prefix, src_plen);
+ /*TODO*/
+                send_update(neigh->ifp, 0, prefix, plen, src_prefix, src_plen, '\0');
             }
         } else if(type == MESSAGE_MH_REQUEST_SRC_SPECIFIC) {
             unsigned char prefix[16], plen, ae, src_prefix[16], src_plen, hopc;
@@ -1133,6 +1137,7 @@ really_send_update(struct interface *ifp,
                    const unsigned char *id,
                    const unsigned char *prefix, unsigned char plen,
                    const unsigned char *src_prefix, unsigned char src_plen,
+                   unsigned char tos,
                    unsigned short seqno, unsigned short metric,
                    unsigned char *channels, int channels_len)
 {
@@ -1152,7 +1157,7 @@ really_send_update(struct interface *ifp,
         return;
 
     add_metric = output_filter(id, prefix, plen, src_prefix,
-                               src_plen, ifp->ifindex);
+                               src_plen, tos, ifp->ifindex);
     if(add_metric >= INFINITY)
         return;
 
@@ -1209,7 +1214,7 @@ really_send_update(struct interface *ifp,
         memcpy(ifp->buffered_id, id, 8);
         ifp->have_buffered_id = 1;
     }
-
+ 
     if(src_plen == 0)
         start_message(ifp, MESSAGE_UPDATE, 10 + (real_plen + 7) / 8 - omit +
                       channels_size);
@@ -1235,6 +1240,11 @@ really_send_update(struct interface *ifp,
         accumulate_byte(ifp, 2);
         accumulate_byte(ifp, channels_len);
         accumulate_bytes(ifp, channels, channels_len);
+    }
+    if (tos != '\0') {
+        accumulate_byte(ifp, 0xF0);     
+        accumulate_byte(ifp, 0x08);   
+        accumulate_byte(ifp, tos);           
     }
     if(src_plen == 0)
         end_message(ifp, MESSAGE_UPDATE, 10 + (real_plen + 7) / 8 - omit +
@@ -1290,7 +1300,16 @@ compare_buffered_updates(const void *av, const void *bv)
     else if(a->src_plen > b->src_plen)
         return 1;
 
-    return memcmp(a->src_prefix, b->src_prefix, 16);
+    rc = memcmp(a->src_prefix, b->src_prefix, 16);
+    if(rc != 0)
+        return rc;
+
+    if(a->tos < b->tos)
+        return -1;
+    else if(a->tos > b->tos)
+        return 1;
+
+    return 0;
 }
 
 
@@ -1303,6 +1322,7 @@ flushupdates(struct interface *ifp)
     const unsigned char *last_src_prefix = NULL;
     unsigned char last_plen = 0xFF;
     unsigned char last_src_plen = 0xFF;
+    unsigned char last_tos;
     int i;
 
     if(ifp == NULL) {
@@ -1328,7 +1348,7 @@ flushupdates(struct interface *ifp)
 
         /* In order to send fewer update messages, we want to send updates
            with the same router-id together, with IPv6 going out before IPv4. */
-
+/*TODO c'est bon ça?? ou alors il faut modifier find_installed_route?*/
         for(i = 0; i < n; i++) {
             route = find_installed_route(b[i].prefix, b[i].plen,
                                          b[i].src_prefix, b[i].src_plen);
@@ -1349,9 +1369,10 @@ flushupdates(struct interface *ifp)
                b[i].plen == last_plen &&
                b[i].src_plen == last_src_plen &&
                memcmp(b[i].prefix, last_prefix, 16) == 0 &&
-               memcmp(b[i].src_prefix, last_src_prefix, 16) == 0)
+               memcmp(b[i].src_prefix, last_src_prefix, 16) == 0 &&
+               b[i].tos == last_tos )
                 continue;
-
+            /*TODO changer find_xroute, xroute, find_installed_route??*/
             xroute = find_xroute(b[i].prefix, b[i].plen,
                                  b[i].src_prefix, b[i].src_plen);
             route = find_installed_route(b[i].prefix, b[i].plen,
@@ -1361,12 +1382,14 @@ flushupdates(struct interface *ifp)
                 really_send_update(ifp, myid,
                                    xroute->prefix, xroute->plen,
                                    xroute->src_prefix, xroute->src_plen,
+                                   xroute->tos,
                                    myseqno, xroute->metric,
                                    NULL, 0);
                 last_prefix = xroute->prefix;
                 last_plen = xroute->plen;
                 last_src_prefix = xroute->src_prefix;
                 last_src_plen = xroute->src_plen;
+                last_tos = xroute->tos;
             } else if(route) {
                 unsigned char channels[MAX_CHANNEL_HOPS];
                 int chlen;
@@ -1381,6 +1404,7 @@ flushupdates(struct interface *ifp)
                     route_metric_noninterfering(route);
 
                 if(metric < INFINITY)
+                    /*TODO tos*/
                     satisfy_request(route->src->prefix, route->src->plen,
                                     route->src->src_prefix,
                                     route->src->src_plen,
@@ -1410,6 +1434,7 @@ flushupdates(struct interface *ifp)
                 really_send_update(ifp, route->src->id,
                                    route->src->prefix, route->src->plen,
                                    route->src->src_prefix, route->src->src_plen,
+                                   route->src->tos,
                                    seqno, metric,
                                    channels, chlen);
                 update_source(route->src, seqno, metric);
@@ -1417,11 +1442,13 @@ flushupdates(struct interface *ifp)
                 last_plen = route->src->plen;
                 last_src_prefix = route->src->src_prefix;
                 last_src_plen = route->src->src_plen;
+                last_tos = route->tos;
             } else {
             /* There's no route for this prefix.  This can happen shortly
                after an xroute has been retracted, so send a retraction. */
                 really_send_update(ifp, myid, b[i].prefix, b[i].plen,
                                    b[i].src_prefix, b[i].src_plen,
+                                   b[i].tos,
                                    myseqno, INFINITY, NULL, -1);
             }
         }
@@ -1447,7 +1474,8 @@ schedule_update_flush(struct interface *ifp, int urgent)
 static void
 buffer_update(struct interface *ifp,
               const unsigned char *prefix, unsigned char plen,
-              const unsigned char *src_prefix, unsigned char src_plen)
+              const unsigned char *src_prefix, unsigned char src_plen,
+              unsigned char tos)
 {
     if(ifp->num_buffered_updates > 0 &&
        ifp->num_buffered_updates >= ifp->update_bufsize)
@@ -1482,6 +1510,7 @@ buffer_update(struct interface *ifp,
     memcpy(ifp->buffered_updates[ifp->num_buffered_updates].src_prefix,
            src_prefix, 16);
     ifp->buffered_updates[ifp->num_buffered_updates].src_plen = src_plen;
+    ifp->buffered_updates[ifp->num_buffered_updates].tos = tos;
     ifp->num_buffered_updates++;
 }
 
@@ -1491,16 +1520,18 @@ buffer_update(struct interface *ifp,
 void
 send_update(struct interface *ifp, int urgent,
             const unsigned char *prefix, unsigned char plen,
-            const unsigned char *src_prefix, unsigned char src_plen)
+            const unsigned char *src_prefix, unsigned char src_plen,
+            unsigned char tos)
 {
     if(ifp == NULL) {
         struct interface *ifp_aux;
         struct babel_route *route;
         FOR_ALL_INTERFACES(ifp_aux)
-            send_update(ifp_aux, urgent, prefix, plen, src_prefix, src_plen);
+            send_update(ifp_aux, urgent, prefix, plen, src_prefix, src_plen, tos);
         if(prefix) {
             /* Since flushupdates only deals with non-wildcard interfaces, we
                need to do this now. */
+                  /* TODO TOS */
             route = find_installed_route(prefix, plen, src_prefix, src_plen);
             if(route && route_metric(route) < INFINITY)
                 satisfy_request(prefix, plen, src_prefix, src_plen,
@@ -1509,14 +1540,14 @@ send_update(struct interface *ifp, int urgent,
         return;
     }
 
-    if(!if_up(ifp))
+    if(!if_up(ifp)) 
         return;
 
     if(prefix && src_prefix) {
         debugf("Sending update to %s for %s from %s.\n",
                ifp->name, format_prefix(prefix, plen),
                format_prefix(src_prefix, src_plen));
-        buffer_update(ifp, prefix, plen, src_prefix, src_plen);
+        buffer_update(ifp, prefix, plen, src_prefix, src_plen, tos);
     } else if(prefix || src_prefix) {
         struct route_stream *routes;
         send_self_update(ifp);
@@ -1531,7 +1562,7 @@ send_update(struct interface *ifp, int urgent,
                    (prefix && route->src->src_plen == 0))
                     continue;
                 buffer_update(ifp, route->src->prefix, route->src->plen,
-                              route->src->src_prefix, route->src->src_plen);
+                              route->src->src_prefix, route->src->src_plen, tos);
             }
             route_stream_done(routes);
         } else {
@@ -1543,12 +1574,13 @@ send_update(struct interface *ifp, int urgent,
         else
             ifp->last_specific_update_time = now.tv_sec;
     } else {
-        send_update(ifp, urgent, NULL, 0, zeroes, 0);
-        send_update(ifp, urgent, zeroes, 0, NULL, 0);
+        send_update(ifp, urgent, NULL, 0, zeroes, 0, tos);
+        send_update(ifp, urgent, zeroes, 0, NULL, 0, tos);
     }
     schedule_update_flush(ifp, urgent);
 }
 
+/*TODO ajouter tos*/
 void
 send_update_resend(struct interface *ifp,
                    const unsigned char *prefix, unsigned char plen,
@@ -1556,7 +1588,8 @@ send_update_resend(struct interface *ifp,
 {
     assert(prefix != NULL);
 
-    send_update(ifp, 1, prefix, plen, src_prefix, src_plen);
+ /*TODO*/
+    send_update(ifp, 1, prefix, plen, src_prefix, src_plen, '\0');
     record_resend(RESEND_UPDATE, prefix, plen, src_prefix, src_plen,
                   0, NULL, NULL, resend_delay);
 }
@@ -1615,7 +1648,7 @@ send_self_update(struct interface *ifp)
             struct xroute *xroute = xroute_stream_next(xroutes);
             if(xroute == NULL) break;
             send_update(ifp, 0, xroute->prefix, xroute->plen,
-                        xroute->src_prefix, xroute->src_plen);
+                        xroute->src_prefix, xroute->src_plen, xroute->tos);
         }
         xroute_stream_done(xroutes);
     } else {
@@ -2049,14 +2082,16 @@ handle_request(struct neighbour *neigh, const unsigned char *prefix,
                 update_myseqno();
             }
         }
-        send_update(neigh->ifp, 1, prefix, plen, src_prefix, src_plen);
+/*TODO*/
+        send_update(neigh->ifp, 1, prefix, plen, src_prefix, src_plen, '\0');
         return;
     }
 
     if(route &&
        (memcmp(id, route->src->id, 8) != 0 ||
         seqno_compare(seqno, route->seqno) <= 0)) {
-        send_update(neigh->ifp, 1, prefix, plen, src_prefix, src_plen);
+/*TODO*/
+        send_update(neigh->ifp, 1, prefix, plen, src_prefix, src_plen, '\0');
         return;
     }
 
