@@ -25,10 +25,9 @@ struct buffered_update {
     unsigned char prefix[16];
     unsigned char src_prefix[16];
     unsigned char plen;
-    unsigned char tos;
     unsigned char src_plen; /* 0 <=> no src prefix */
+    unsigned char tos;
     unsigned char pad[2];
-    unsigned char ToS[8];
 };
 
 #define IF_TYPE_DEFAULT 0

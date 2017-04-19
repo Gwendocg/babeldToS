@@ -328,7 +328,7 @@ check_xroutes(int send_updates)
             memcpy(src_prefix, xroutes[i].src_prefix, 16);
             src_plen = xroutes[i].src_plen;
             flush_xroute(&xroutes[i]);
-            route = find_best_route(prefix, plen, src_prefix, src_plen, 1,NULL);
+            route = find_best_route(prefix, plen, src_prefix, src_plen, 1, NULL);
             if(route)
                 install_route(route);
             /* send_update_resend only records the prefix, so the update
@@ -366,7 +366,7 @@ check_xroutes(int send_updates)
                 change = 1;
                 if(send_updates)
                     send_update(NULL, 0, routes[i].prefix, routes[i].plen,
-                                routes[i].src_prefix, routes[i].src_plen);
+                                routes[i].src_prefix, routes[i].src_plen, '\0');
             }
         }
     }

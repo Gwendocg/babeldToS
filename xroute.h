@@ -25,6 +25,7 @@ struct xroute {
     unsigned char plen;
     unsigned char src_prefix[16];
     unsigned char src_plen;
+    unsigned char tos;
     unsigned short metric;
     unsigned int ifindex;
     int proto;

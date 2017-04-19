@@ -1240,6 +1240,7 @@ static int
 do_filter(struct filter *f, const unsigned char *id,
           const unsigned char *prefix, unsigned short plen,
           const unsigned char *src_prefix, unsigned short src_plen,
+          unsigned char tos,
           const unsigned char *neigh, unsigned int ifindex, int proto,
           struct filter_result *result)
 {
@@ -1263,11 +1264,12 @@ int
 input_filter(const unsigned char *id,
              const unsigned char *prefix, unsigned short plen,
              const unsigned char *src_prefix, unsigned short src_plen,
+             unsigned char tos,
              const unsigned char *neigh, unsigned int ifindex)
 {
     int res;
     res = do_filter(input_filters, id, prefix, plen,
-                    src_prefix, src_plen, neigh, ifindex, 0, NULL);
+                    src_prefix, src_plen, tos, neigh, ifindex, 0, NULL);
     if(res < 0)
         res = 0;
     return res;
@@ -1277,11 +1279,12 @@ int
 output_filter(const unsigned char *id,
               const unsigned char *prefix, unsigned short plen,
               const unsigned char *src_prefix, unsigned short src_plen,
+              unsigned char tos,
               unsigned int ifindex)
 {
     int res;
     res = do_filter(output_filters, id, prefix, plen,
-                    src_prefix, src_plen, NULL, ifindex, 0, NULL);
+                    src_prefix, src_plen, tos, NULL, ifindex, 0, NULL);
     if(res < 0)
         res = 0;
     return res;
@@ -1290,12 +1293,13 @@ output_filter(const unsigned char *id,
 int
 redistribute_filter(const unsigned char *prefix, unsigned short plen,
                     const unsigned char *src_prefix, unsigned short src_plen,
+                    unsigned char tos,
                     unsigned int ifindex, int proto,
                     struct filter_result *result)
 {
     int res;
     res = do_filter(redistribute_filters, NULL, prefix, plen,
-                    src_prefix, src_plen, NULL, ifindex, proto, result);
+                    src_prefix, src_plen, tos, NULL, ifindex, proto, result);
     if(res < 0)
         res = INFINITY;
     return res;
@@ -1304,11 +1308,12 @@ redistribute_filter(const unsigned char *prefix, unsigned short plen,
 int
 install_filter(const unsigned char *prefix, unsigned short plen,
                const unsigned char *src_prefix, unsigned short src_plen,
+               unsigned char tos,
                struct filter_result *result)
 {
     int res;
     res = do_filter(install_filters, NULL, prefix, plen,
-                    src_prefix, src_plen, NULL, 0, 0, result);
+                    src_prefix, src_plen, tos, NULL, 0, 0, result);
     if(res < 0)
         res = INFINITY;
     return res;
