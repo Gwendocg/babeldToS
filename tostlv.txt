@@ -10,8 +10,8 @@ UPDATE:
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |             Seqno             |            Metric             |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |      Prefix...
-   +-+-+-+-+-+-+-+-+-+-+-+-
+   |      ToS      |      AE       |    Prefix ...
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
 AE:
@@ -26,11 +26,10 @@ Normal:
    o  AE 3: link-local IPv6 address.  The value is 8 octets long, a
       prefix of fe80::/64 is implied.
 
-Tos-specific: 
+   o  AE 5: ToS-specific.
 
-On utilise les 6 premiers bits pour coder le ToS. Les deux bits suivants sont comme pour Babel non Tos-specific.
-C'est nul parce qu'il n'y a aucune indication qu'on fait du Tos-specific. Du coup personne d'autre ne pourra utiliser ces bits.
 
+Prefix : 6 bits de ToS, puis 8 bits d'AE, puis prefix -> c'est toujours nullll
 
 
 
@@ -49,8 +48,8 @@ ROUTE REQUEST:
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |    Type = 9   |    Length     |      AE       |     Plen      |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |      Prefix...
-   +-+-+-+-+-+-+-+-+-+-+-+-
+   |      ToS      |      AE       |    Prefix ...
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
 
@@ -67,8 +66,8 @@ SEQNO REQUEST:
    +                          Router-Id                            +
    |                                                               |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |   Prefix...
-   +-+-+-+-+-+-+-+-+-+-+
+   |      ToS      |      AE       |    Prefix ...
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
 
