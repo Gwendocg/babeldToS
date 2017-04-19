@@ -1111,6 +1111,7 @@ really_send_update(struct interface *ifp,
                    const unsigned char *id,
                    const unsigned char *prefix, unsigned char plen,
                    const unsigned char *src_prefix, unsigned char src_plen,
+                   unsigned char tos,
                    unsigned short seqno, unsigned short metric,
                    unsigned char *channels, int channels_len)
 {
@@ -1120,6 +1121,7 @@ really_send_update(struct interface *ifp,
     int real_src_plen = 0;
     unsigned short flags = 0;
     int channels_size;
+    int tos_space=0;
 
     if(diversity_kind != DIVERSITY_CHANNEL)
         channels_len = -1;
@@ -1188,13 +1190,15 @@ really_send_update(struct interface *ifp,
         ifp->have_buffered_id = 1;
     }
 
+    if (tos != '\0')
+        tos_space=8;
     if(src_plen == 0)
         start_message(ifp, MESSAGE_UPDATE, 10 + (real_plen + 7) / 8 - omit +
-                      channels_size);
+                      channels_size+tos_space);
     else
         start_message(ifp, MESSAGE_UPDATE_SRC_SPECIFIC,
                       10 + (real_plen + 7) / 8 - omit +
-                      (real_src_plen + 7) / 8 + channels_size);
+                      (real_src_plen + 7) / 8 + channels_size+tos_space);
     accumulate_byte(ifp, v4 ? 1 : 2);
     if(src_plen != 0)
         accumulate_byte(ifp, real_src_plen);
@@ -1205,6 +1209,8 @@ really_send_update(struct interface *ifp,
     accumulate_short(ifp, (ifp->update_interval + 5) / 10);
     accumulate_short(ifp, seqno);
     accumulate_short(ifp, metric);
+    if (tos != '\0')
+        accumulate_byte(ifp, tos);
     accumulate_bytes(ifp, real_prefix + omit, (real_plen + 7) / 8 - omit);
     if(src_plen != 0)
         accumulate_bytes(ifp, real_src_prefix, (real_src_plen + 7) / 8);
@@ -1338,6 +1344,7 @@ flushupdates(struct interface *ifp)
                 really_send_update(ifp, myid,
                                    xroute->prefix, xroute->plen,
                                    xroute->src_prefix, xroute->src_plen,
+                                   '\0',
                                    myseqno, xroute->metric,
                                    NULL, 0);
                 last_prefix = xroute->prefix;
@@ -1387,6 +1394,7 @@ flushupdates(struct interface *ifp)
                 really_send_update(ifp, route->src->id,
                                    route->src->prefix, route->src->plen,
                                    route->src->src_prefix, route->src->src_plen,
+                                   '\0',
                                    seqno, metric,
                                    channels, chlen);
                 update_source(route->src, seqno, metric);
@@ -1399,6 +1407,7 @@ flushupdates(struct interface *ifp)
                after an xroute has been retracted, so send a retraction. */
                 really_send_update(ifp, myid, b[i].prefix, b[i].plen,
                                    b[i].src_prefix, b[i].src_plen,
+                                   '\0',
                                    myseqno, INFINITY, NULL, -1);
             }
         }
