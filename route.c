@@ -56,6 +56,7 @@ static int
 check_specific_first(void)
 {
     /* All source-specific routes are in front of the list */
+/*TODO est-ce qu'il faut ajouter tos?*/
     int specific = 1;
     int i;
     for(i = 0; i < route_slots; i++) {
@@ -75,6 +76,7 @@ check_specific_first(void)
 static int
 route_compare(const unsigned char *prefix, unsigned char plen,
               const unsigned char *src_prefix, unsigned char src_plen,
+              unsigned char tos,
               struct babel_route *route)
 {
     int i;
@@ -108,6 +110,12 @@ route_compare(const unsigned char *prefix, unsigned char plen,
             return 1;
     }
 
+    if(tos == 0 && route->src->tos > 0) {
+        return 1;
+    } else if(tos > 0 && route->src->tos == 0) {
+        return -1;
+    }
+
     return 0;
 }
 
@@ -132,7 +140,7 @@ find_route_slot(const unsigned char *prefix, unsigned char plen,
 
     do {
         m = (p + g) / 2;
-        c = route_compare(prefix, plen, src_prefix, src_plen, routes[m]);
+        c = route_compare(prefix, plen, src_prefix, src_plen, tos, routes[m]);
         if(c == 0)
             return m;
         else if(c < 0)
@@ -404,6 +412,7 @@ route_stream_next(struct route_stream *stream)
     if(stream->installed) {
         while(stream->index < route_slots)
             if(stream->installed == ROUTE_SS_INSTALLED &&
+/*TODO faut-il ajouter un truc?*/
                routes[stream->index]->src->src_plen == 0)
                 return NULL;
             else if(routes[stream->index]->installed)
@@ -789,6 +798,7 @@ update_route_metric(struct babel_route *route)
                                       route->src->prefix, route->src->plen,
                                       route->src->src_prefix,
                                       route->src->src_plen,
+                                      route->src->tos,
                                       neigh->address,
                                       neigh->ifp->ifindex);
         change_route_metric(route, route->refmetric,
@@ -873,7 +883,7 @@ update_route(const unsigned char *id,
         return NULL;
 
 
-    add_metric = input_filter(id, prefix, plen, src_prefix, src_plen,
+    add_metric = input_filter(id, prefix, plen, src_prefix, src_plen, tos,
                               neigh->address, neigh->ifp->ifindex);
     if(add_metric >= INFINITY)
         return NULL;
@@ -884,7 +894,7 @@ update_route(const unsigned char *id,
         /* Avoid scanning the source table. */
         src = route->src;
     else
-        src = find_source(id, prefix, plen, src_prefix, src_plen, 1, seqno);
+        src = find_source(id, prefix, plen, src_prefix, src_plen, tos, 1, seqno);
 
     if(src == NULL)
         return NULL;
@@ -1023,6 +1033,7 @@ send_unfeasible_request(struct neighbour *neigh, int force,
     if(force || !route || route_metric(route) >= metric + 512) {
         send_unicast_multihop_request(neigh, src->prefix, src->plen,
                                       src->src_prefix, src->src_plen,
+                                      src->tos,
                                       src->metric >= INFINITY ?
                                       src->seqno :
                                       seqno_plus(src->seqno, 1),
@@ -1048,7 +1059,7 @@ consider_route(struct babel_route *route)
         return;
 
     xroute = find_xroute(route->src->prefix, route->src->plen,
-                         route->src->src_prefix, route->src->src_plen);
+                         route->src->src_prefix, route->src->src_plen, route->src->tos);
     if(xroute && (allow_duplicates < 0 || xroute->metric >= allow_duplicates))
         return;
 
@@ -1077,7 +1088,7 @@ consider_route(struct babel_route *route)
         send_triggered_update(route, installed->src, route_metric(installed));
     else
         send_update(NULL, 1, route->src->prefix, route->src->plen,
-                    route->src->src_prefix, route->src->src_plen, '\0');
+                    route->src->src_prefix, route->src->src_plen, route->src->tos);
     return;
 }
 
@@ -1145,15 +1156,15 @@ send_triggered_update(struct babel_route *route, struct source *oldsrc,
 
     if(urgent >= 2)
         send_update_resend(NULL, route->src->prefix, route->src->plen,
-                           route->src->src_prefix, route->src->src_plen);
+                           route->src->src_prefix, route->src->src_plen, route->src->tos);
     else
         send_update(NULL, urgent, route->src->prefix, route->src->plen,
-                    route->src->src_prefix, route->src->src_plen, '\0');
+                    route->src->src_prefix, route->src->src_plen, route->src->tos);
 
     if(oldmetric < INFINITY) {
         if(newmetric >= oldmetric + 288) {
             send_request(NULL, route->src->prefix, route->src->plen,
-                         route->src->src_prefix, route->src->src_plen);
+                         route->src->src_prefix, route->src->src_plen, route->src->tos);
         }
     }
 }
@@ -1197,13 +1208,14 @@ route_lost(struct source *src, unsigned oldmetric)
     } else if(oldmetric < INFINITY) {
         /* Avoid creating a blackhole. */
         send_update_resend(NULL, src->prefix, src->plen,
-                           src->src_prefix, src->src_plen);
+                           src->src_prefix, src->src_plen, src->tos);
         /* If the route was usable enough, try to get an alternate one.
            If it was not, we could be dealing with oscillations around
            the value of INFINITY. */
         if(oldmetric <= INFINITY / 2)
             send_request_resend(NULL, src->prefix, src->plen,
                                 src->src_prefix, src->src_plen,
+                                src->tos,
                                 src->metric >= INFINITY ?
                                 src->seqno : seqno_plus(src->seqno, 1),
                                 src->id);
@@ -1237,7 +1249,8 @@ expire_routes(void)
                     /* Route about to expire, send a request. */
                     send_unicast_request(r->neigh,
                                          r->src->prefix, r->src->plen,
-                                         r->src->src_prefix, r->src->src_plen);
+                                         r->src->src_prefix, r->src->src_plen,
+                                         r->src->tos);
             }
             r = r->next;
         }

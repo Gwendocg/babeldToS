@@ -40,6 +40,7 @@ struct source *find_source(const unsigned char *id,
                            unsigned char plen,
                            const unsigned char *src_prefix,
                            unsigned char src_plen,
+                           unsigned char tos,
                            int create, unsigned short seqno);
 struct source *retain_source(struct source *src);
 void release_source(struct source *src);

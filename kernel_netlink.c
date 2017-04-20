@@ -924,6 +924,7 @@ int
 kernel_route(int operation, int table,
              const unsigned char *dest, unsigned short plen,
              const unsigned char *src, unsigned short src_plen,
+             unsigned char tos,
              const unsigned char *gate, int ifindex, unsigned int metric,
              const unsigned char *newgate, int newifindex,
              unsigned int newmetric, int newtable)
@@ -966,6 +967,11 @@ kernel_route(int operation, int table,
         }
     }
 
+    if(tos != 0) {
+        errno = ENOSYS;
+        return -1;
+    }
+
     if(operation == ROUTE_MODIFY) {
         if(newmetric == metric && memcmp(newgate, gate, 16) == 0 &&
            newifindex == ifindex)
@@ -978,10 +984,12 @@ kernel_route(int operation, int table,
            small enough to be negligible. */
         kernel_route(ROUTE_FLUSH, table, dest, plen,
                      src, src_plen,
+                     tos,
                      gate, ifindex, metric,
                      NULL, 0, 0, 0);
         rc = kernel_route(ROUTE_ADD, newtable, dest, plen,
                           src, src_plen,
+                          tos,
                           newgate, newifindex, newmetric,
                           NULL, 0, 0, 0);
         if(rc < 0) {

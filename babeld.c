@@ -129,6 +129,7 @@ kernel_link_notify(struct kernel_link *link, void *closure)
 static int
 kernel_rule_notify(struct kernel_rule *rule, void *closure)
 {
+/*TODO changer la règle*/
     int i;
     if(martian_prefix(rule->src, rule->src_plen))
         return 0;
@@ -585,7 +586,8 @@ main(int argc, char **argv)
         send_hello(ifp);
         send_wildcard_retraction(ifp);
         send_self_update(ifp);
-        send_request(ifp, NULL, 0, NULL, 0);
+/*TODO quel tos?*/
+        send_request(ifp, NULL, 0, NULL, 0, 0);
         flushupdates(ifp);
         flushbuf(ifp);
     }
@@ -1074,12 +1076,14 @@ dump_route(FILE *out, struct babel_route *route)
         snprintf(channels + j, 100 - j, ")");
     }
 
-    fprintf(out, "%s%s%s metric %d (%d) refmetric %d id %s "
+    fprintf(out, "%s%s%s%s%c metric %d (%d) refmetric %d id %s "
             "seqno %d%s age %d via %s neigh %s%s%s%s\n",
             format_prefix(route->src->prefix, route->src->plen),
             route->src->src_plen > 0 ? " from " : "",
             route->src->src_plen > 0 ?
             format_prefix(route->src->src_prefix, route->src->src_plen) : "",
+            route->src->tos > 0 ? " with ToS " : "",
+            route->src->tos > 0 ? route->src->tos : '\0',
             route_metric(route), route_smoothed_metric(route), route->refmetric,
             format_eui64(route->src->id),
             (int)route->seqno,
@@ -1096,11 +1100,13 @@ dump_route(FILE *out, struct babel_route *route)
 static void
 dump_xroute(FILE *out, struct xroute *xroute)
 {
-    fprintf(out, "%s%s%s metric %d (exported)\n",
+    fprintf(out, "%s%s%s%s%c metric %d (exported)\n",
             format_prefix(xroute->prefix, xroute->plen),
             xroute->src_plen > 0 ? " from " : "",
             xroute->src_plen > 0 ?
             format_prefix(xroute->src_prefix, xroute->src_plen) : "",
+            xroute->tos > 0 ? " with ToS " : "",
+            xroute->tos > 0 ? xroute->tos : '\0',
             xroute->metric);
 }
 

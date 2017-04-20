@@ -208,7 +208,7 @@ is_installed(struct zone *zone)
 {
     return zone != NULL &&
         find_installed_route(zone->dst_prefix, zone->dst_plen,
-                             zone->src_prefix, zone->src_plen) != NULL;
+                             zone->src_prefix, zone->src_plen, '\0') != NULL;
 }
 
 static int

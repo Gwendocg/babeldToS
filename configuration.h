@@ -68,7 +68,6 @@ int input_filter(const unsigned char *id,
 int output_filter(const unsigned char *id,
                   const unsigned char *prefix, unsigned short plen,
                   const unsigned char *src_prefix, unsigned short src_plen,
-                  unsigned char tos,
                   unsigned int ifindex);
 int redistribute_filter(const unsigned char *prefix, unsigned short plen,
                     const unsigned char *src_prefix, unsigned short src_plen,

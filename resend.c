@@ -100,11 +100,11 @@ record_resend(int kind, const unsigned char *prefix, unsigned char plen,
     unsigned int ifindex = ifp ? ifp->ifindex : 0;
 
     if((kind == RESEND_REQUEST &&
-        input_filter(NULL, prefix, plen, src_prefix, src_plen, tos, NULL,
+        input_filter(NULL, prefix, plen, src_prefix, src_plen, NULL,
                      ifindex) >=
         INFINITY) ||
        (kind == RESEND_UPDATE &&
-        output_filter(NULL, prefix, plen, src_prefix, src_plen, tos, ifindex) >=
+        output_filter(NULL, prefix, plen, src_prefix, src_plen, ifindex) >=
         INFINITY))
         return 0;
 
@@ -321,7 +321,7 @@ do_resend()
                 case RESEND_UPDATE:
                     send_update(resend->ifp, 1,
                                 resend->prefix, resend->plen,
-                                resend->src_prefix, resend->src_plen, resend->tos, '\0');
+                                resend->src_prefix, resend->src_plen, resend->tos);
                     break;
                 default: abort();
                 }
