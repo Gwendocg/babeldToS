@@ -1224,11 +1224,11 @@ really_send_update(struct interface *ifp,
  
     if(src_plen == 0)
         start_message(ifp, MESSAGE_UPDATE, 10 + (real_plen + 7) / 8 - omit +
-                      channels_size);
+                      channels_size + (tos != '\0'? 3 : 0));
     else
         start_message(ifp, MESSAGE_UPDATE_SRC_SPECIFIC,
                       10 + (real_plen + 7) / 8 - omit +
-                      (real_src_plen + 7) / 8 + channels_size);
+                      (real_src_plen + 7) / 8 + channels_size + (tos != '\0'? 3 : 0));
     accumulate_byte(ifp, v4 ? 1 : 2);
     if(src_plen != 0)
         accumulate_byte(ifp, real_src_plen);
@@ -1255,11 +1255,11 @@ really_send_update(struct interface *ifp,
     }
     if(src_plen == 0)
         end_message(ifp, MESSAGE_UPDATE, 10 + (real_plen + 7) / 8 - omit +
-                    channels_size);
+                    channels_size + (tos != '\0'? 3 : 0));
     else
         end_message(ifp, MESSAGE_UPDATE_SRC_SPECIFIC,
                     10 + (real_plen + 7) / 8 - omit +
-                    (real_src_plen + 7) / 8 + channels_size);
+                    (real_src_plen + 7) / 8 + channels_size + (tos != '\0'? 3 : 0));
 
     if(flags & 0x80) {
         memcpy(ifp->buffered_prefix, prefix, 16);

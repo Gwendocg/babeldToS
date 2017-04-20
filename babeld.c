@@ -145,6 +145,7 @@ kernel_rule_notify(struct kernel_rule *rule, void *closure)
 int
 main(int argc, char **argv)
 {
+    printf("hello!\n");
     struct sockaddr_in6 sin6;
     int rc, fd, i, opt;
     time_t expiry_time, source_expiry_time, kernel_dump_time;
