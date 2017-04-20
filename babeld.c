@@ -129,7 +129,6 @@ kernel_link_notify(struct kernel_link *link, void *closure)
 static int
 kernel_rule_notify(struct kernel_rule *rule, void *closure)
 {
-/*TODO changer la règle*/
     int i;
     if(martian_prefix(rule->src, rule->src_plen))
         return 0;
@@ -586,7 +585,6 @@ main(int argc, char **argv)
         send_hello(ifp);
         send_wildcard_retraction(ifp);
         send_self_update(ifp);
-/*TODO quel tos?*/
         send_request(ifp, NULL, 0, NULL, 0, 0);
         flushupdates(ifp);
         flushbuf(ifp);

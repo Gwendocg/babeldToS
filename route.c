@@ -56,7 +56,6 @@ static int
 check_specific_first(void)
 {
     /* All source-specific routes are in front of the list */
-/*TODO est-ce qu'il faut ajouter tos?*/
     int specific = 1;
     int i;
     for(i = 0; i < route_slots; i++) {
@@ -391,9 +390,9 @@ struct route_stream *
 route_stream(int which)
 {
     struct route_stream *stream;
-
+/*TODO pasque là ça marche pas*/
     if(!check_specific_first())
-        fprintf(stderr, "Invariant failed: specific routes first in RIB.\n");
+        fprintf(stderr, "Invariant failed: source-specific routes first in RIB.\n");
 
     stream = calloc(1, sizeof(struct route_stream));
     if(stream == NULL)
@@ -798,7 +797,6 @@ update_route_metric(struct babel_route *route)
                                       route->src->prefix, route->src->plen,
                                       route->src->src_prefix,
                                       route->src->src_plen,
-                                      route->src->tos,
                                       neigh->address,
                                       neigh->ifp->ifindex);
         change_route_metric(route, route->refmetric,
@@ -883,7 +881,7 @@ update_route(const unsigned char *id,
         return NULL;
 
 
-    add_metric = input_filter(id, prefix, plen, src_prefix, src_plen, tos,
+    add_metric = input_filter(id, prefix, plen, src_prefix, src_plen,
                               neigh->address, neigh->ifp->ifindex);
     if(add_metric >= INFINITY)
         return NULL;

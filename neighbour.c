@@ -188,7 +188,6 @@ update_neighbour(struct neighbour *neigh, int hello, int hello_interval)
     if((neigh->reach & 0xFC00) == 0xC000) {
         /* This is a newish neighbour, let's request a full route dump.
            We ought to avoid this when the network is dense */
-/*TODO quel tos?*/
         send_unicast_request(neigh, NULL, 0, NULL, 0, 0);
         send_ihu(neigh, NULL);
     }

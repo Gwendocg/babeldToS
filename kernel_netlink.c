@@ -983,13 +983,11 @@ kernel_route(int operation, int table,
            stick with the naive approach, and hope that the window is
            small enough to be negligible. */
         kernel_route(ROUTE_FLUSH, table, dest, plen,
-                     src, src_plen,
-                     tos,
+                     src, src_plen, tos,
                      gate, ifindex, metric,
                      NULL, 0, 0, 0);
         rc = kernel_route(ROUTE_ADD, newtable, dest, plen,
-                          src, src_plen,
-                          tos,
+                          src, src_plen, tos,
                           newgate, newifindex, newmetric,
                           NULL, 0, 0, 0);
         if(rc < 0) {

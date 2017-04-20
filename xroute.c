@@ -359,7 +359,7 @@ check_xroutes(int send_updates)
 /*TODO*/
             rc = add_xroute(routes[i].prefix, routes[i].plen,
                             routes[i].src_prefix, routes[i].src_plen,
-                            '\0',
+                            42,
                             metric, routes[i].ifindex, routes[i].proto);
             if(rc > 0) {
                 struct babel_route *route;
