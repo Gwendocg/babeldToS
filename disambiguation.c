@@ -217,7 +217,7 @@ add_route(const struct zone *zone, const struct babel_route *route)
     int table = find_table(zone->dst_prefix, zone->dst_plen,
                            zone->src_prefix, zone->src_plen);
     return kernel_route(ROUTE_ADD, table, zone->dst_prefix, zone->dst_plen,
-                        zone->src_prefix, zone->src_plen, '\0',
+                        zone->src_prefix, zone->src_plen, route->src->tos,
                         route->nexthop,
                         route->neigh->ifp->ifindex,
                         metric_to_kernel(route_metric(route)), NULL, 0, 0, 0);
@@ -229,7 +229,7 @@ del_route(const struct zone *zone, const struct babel_route *route)
     int table = find_table(zone->dst_prefix, zone->dst_plen,
                            zone->src_prefix, zone->src_plen);
     return kernel_route(ROUTE_FLUSH, table, zone->dst_prefix, zone->dst_plen,
-                        zone->src_prefix, zone->src_plen, '\0',
+                        zone->src_prefix, zone->src_plen, route->src->tos,
                         route->nexthop,
                         route->neigh->ifp->ifindex,
                         metric_to_kernel(route_metric(route)), NULL, 0, 0, 0);
@@ -242,7 +242,7 @@ chg_route(const struct zone *zone, const struct babel_route *old,
     int table = find_table(zone->dst_prefix, zone->dst_plen,
                            zone->src_prefix, zone->src_plen);
     return kernel_route(ROUTE_MODIFY, table, zone->dst_prefix, zone->dst_plen,
-                        zone->src_prefix, zone->src_plen, '\0',
+                        zone->src_prefix, zone->src_plen, old->src->tos,
                         old->nexthop, old->neigh->ifp->ifindex,
                         metric_to_kernel(route_metric(old)),
                         new->nexthop, new->neigh->ifp->ifindex,
@@ -256,7 +256,7 @@ chg_route_metric(const struct zone *zone, const struct babel_route *route,
     int table = find_table(zone->dst_prefix, zone->dst_plen,
                            zone->src_prefix, zone->src_plen);
     return kernel_route(ROUTE_MODIFY, table, zone->dst_prefix, zone->dst_plen,
-                        zone->src_prefix, zone->src_plen, '\0',
+                        zone->src_prefix, zone->src_plen, route->src->tos,
                         route->nexthop, route->neigh->ifp->ifindex,
                         old_metric,
                         route->nexthop, route->neigh->ifp->ifindex,

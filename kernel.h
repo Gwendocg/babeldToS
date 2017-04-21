@@ -30,6 +30,7 @@ struct kernel_route {
     int plen;
     unsigned char src_prefix[16];
     int src_plen; /* no source prefix <=> src_plen == 0 */
+    unsigned char tos;
     int metric;
     unsigned int ifindex;
     int proto;

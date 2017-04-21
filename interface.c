@@ -467,7 +467,7 @@ interface_up(struct interface *ifp, int up)
         send_hello(ifp);
         if(rc > 0)
             send_update(ifp, 0, NULL, 0, NULL, 0, 0);
-            send_request(ifp, NULL, 0, NULL, 0, 0);
+        send_request(ifp, NULL, 0, NULL, 0, 0);
     } else {
         flush_interface_routes(ifp, 0);
         ifp->buffered = 0;

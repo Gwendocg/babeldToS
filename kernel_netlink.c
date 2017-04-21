@@ -967,11 +967,6 @@ kernel_route(int operation, int table,
         }
     }
 
-    if(tos != 0) {
-        errno = ENOSYS;
-        return -1;
-    }
-
     if(operation == ROUTE_MODIFY) {
         if(newmetric == metric && memcmp(newgate, gate, 16) == 0 &&
            newifindex == ifindex)
@@ -1029,6 +1024,7 @@ kernel_route(int operation, int table,
     rtm->rtm_dst_len = ipv4 ? plen - 96 : plen;
     if(use_src)
         rtm->rtm_src_len = src_plen;
+    rtm->rtm_tos = tos;
     rtm->rtm_table = table;
     rtm->rtm_scope = RT_SCOPE_UNIVERSE;
     if(metric < KERNEL_INFINITY)
@@ -1105,7 +1101,7 @@ parse_kernel_route_rta(struct rtmsg *rtm, int len, struct kernel_route *route)
         route->plen = 96;
     }
     route->proto = rtm->rtm_protocol;
-
+    route->tos = rtm->rtm_tos;
     is_v4 = rtm->rtm_family == AF_INET;
 
     while(RTA_OK(rta, len)) {

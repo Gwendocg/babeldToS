@@ -166,8 +166,12 @@ parse_update_subtlv(struct interface *ifp, int metric,
             memcpy(channels, a + i + 2, MIN(len, *channels_len_return));
             channels_len = MIN(len, *channels_len_return);
         } else if(type == SUBTLV_TOS) {
-            debugf("trouvé un sub-TLV tos-specific\n");
-            *tos_return = *(a + i + 1);
+            if(len == 1) {
+                debugf("Received TOS-specific sub-TLV.\n");
+                *tos_return = a[i + 2];
+            } else {
+                debugf("Received malformed TOS-specific sub-TLV.\n");
+            }
         } else {
             debugf("Received unknown update sub-TLV %d.\n", type);
         }
@@ -1248,10 +1252,10 @@ really_send_update(struct interface *ifp,
         accumulate_byte(ifp, channels_len);
         accumulate_bytes(ifp, channels, channels_len);
     }
-    if (tos != '\0') {
-        accumulate_byte(ifp, 0xF0);     
-        accumulate_byte(ifp, 0x08);   
-        accumulate_byte(ifp, tos);           
+    if (tos != '\0') {   
+        accumulate_byte(ifp, 0xF0);
+        accumulate_byte(ifp, 1);
+        accumulate_byte(ifp, tos);          
     }
     if(src_plen == 0)
         end_message(ifp, MESSAGE_UPDATE, 10 + (real_plen + 7) / 8 - omit +
