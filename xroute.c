@@ -356,18 +356,16 @@ check_xroutes(int send_updates)
                                      routes[i].src_prefix, routes[i].src_plen,
                                      routes[i].ifindex, routes[i].proto, NULL);
         if(metric < INFINITY) {
-/*TODO*/
             rc = add_xroute(routes[i].prefix, routes[i].plen,
                             routes[i].src_prefix, routes[i].src_plen,
-                            42,
+                            routes[i].tos,
                             metric, routes[i].ifindex, routes[i].proto);
             if(rc > 0) {
                 struct babel_route *route;
-/*TODO*/
                 route = find_installed_route(routes[i].prefix, routes[i].plen,
                                              routes[i].src_prefix,
                                              routes[i].src_plen,
-                                             '\0');
+                                             routes[i].tos);
                 if(route) {
                     if(allow_duplicates < 0 ||
                        routes[i].metric < allow_duplicates)
@@ -375,9 +373,9 @@ check_xroutes(int send_updates)
                 }
                 change = 1;
                 if(send_updates)
-/*TODO*/
                     send_update(NULL, 0, routes[i].prefix, routes[i].plen,
-                                routes[i].src_prefix, routes[i].src_plen, '\0');
+                                routes[i].src_prefix, routes[i].src_plen,
+                                routes[i].tos);
             }
         }
     }
