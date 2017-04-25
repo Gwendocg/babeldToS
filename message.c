@@ -1386,7 +1386,6 @@ flushupdates(struct interface *ifp)
                                  b[i].src_prefix, b[i].src_plen, b[i].tos);
             route = find_installed_route(b[i].prefix, b[i].plen,
                                          b[i].src_prefix, b[i].src_plen, b[i].tos);
-
             if(xroute && (!route || xroute->metric <= kernel_metric)) {
                 really_send_update(ifp, myid,
                                    xroute->prefix, xroute->plen,
@@ -1439,7 +1438,6 @@ flushupdates(struct interface *ifp)
                            MIN(route->channels_len, MAX_CHANNEL_HOPS - 1));
                     chlen = 1 + MIN(route->channels_len, MAX_CHANNEL_HOPS - 1);
                 }
-
                 really_send_update(ifp, route->src->id,
                                    route->src->prefix, route->src->plen,
                                    route->src->src_prefix, route->src->src_plen,
@@ -1830,7 +1828,7 @@ send_request(struct interface *ifp,
 
     v4 = plen >= 96 && v4mapped(prefix);
     pb = v4 ? ((plen - 96) + 7) / 8 : (plen + 7) / 8;
-    len = 2 + pb;
+    len = 2 + pb + (tos != '\0'? 3 : 0);
 
     if(src_plen != 0) {
         spb = v4 ? ((src_plen - 96) + 7) / 8 : (src_plen + 7) / 8;
@@ -1854,10 +1852,10 @@ send_request(struct interface *ifp,
         else
             accumulate_bytes(ifp, src_prefix, spb);
     }
-    if (tos != '\0') {
-        accumulate_byte(ifp, 0xF0);     
-        accumulate_byte(ifp, 0x08);   
-        accumulate_byte(ifp, tos);           
+    if (tos != '\0') {   
+        accumulate_byte(ifp, 0xF0);
+        accumulate_byte(ifp, 1);
+        accumulate_byte(ifp, tos);          
     }
     if(src_plen != 0) 
         end_message(ifp, MESSAGE_REQUEST_SRC_SPECIFIC, len);
@@ -1908,7 +1906,7 @@ send_unicast_request(struct neighbour *neigh,
 
     v4 = plen >= 96 && v4mapped(prefix);
     pb = v4 ? ((plen - 96) + 7) / 8 : (plen + 7) / 8;
-    len = 2 + pb;
+    len = 2 + pb + (tos != '\0'? 3 : 0);
 
     if(src_plen != 0) {
         spb = v4 ? ((src_plen - 96) + 7) / 8 : (src_plen + 7) / 8;
@@ -1933,10 +1931,10 @@ send_unicast_request(struct neighbour *neigh,
         else
             accumulate_unicast_bytes(neigh, src_prefix, spb);
     }
-    if (tos != '\0') {
-        accumulate_unicast_byte(neigh, 0xF0);     
-        accumulate_unicast_byte(neigh, 0x08);   
-        accumulate_unicast_byte(neigh, tos);           
+    if (tos != '\0') {   
+        accumulate_unicast_byte(neigh, 0xF0);
+        accumulate_unicast_byte(neigh, 1);
+        accumulate_unicast_byte(neigh, tos);          
     }
     if(src_plen != 0) 
         end_unicast_message(neigh, MESSAGE_REQUEST_SRC_SPECIFIC, len);
@@ -1977,7 +1975,7 @@ send_multihop_request(struct interface *ifp,
            format_prefix(src_prefix, src_plen));
     v4 = plen >= 96 && v4mapped(prefix);
     pb = v4 ? ((plen - 96) + 7) / 8 : (plen + 7) / 8;
-    len = 6 + 8 + pb;
+    len = 6 + 8 + pb + (tos != '\0'? 3 : 0);
 
     if(src_plen != 0) {
         spb = v4 ? ((src_plen - 96) + 7) / 8 : (src_plen + 7) / 8;
@@ -2005,10 +2003,10 @@ send_multihop_request(struct interface *ifp,
         else
             accumulate_bytes(ifp, src_prefix, spb);
     }
-    if (tos != '\0') {
-        accumulate_byte(ifp, 0xF0);     
-        accumulate_byte(ifp, 0x08);   
-        accumulate_byte(ifp, tos);           
+    if (tos != '\0') {   
+        accumulate_byte(ifp, 0xF0);
+        accumulate_byte(ifp, 1);
+        accumulate_byte(ifp, tos);          
     }
     if(src_plen != 0) 
         end_message(ifp, MESSAGE_MH_REQUEST_SRC_SPECIFIC, len);
@@ -2036,7 +2034,7 @@ send_unicast_multihop_request(struct neighbour *neigh,
            format_prefix(src_prefix, src_plen), hop_count);
     v4 = plen >= 96 && v4mapped(prefix);
     pb = v4 ? ((plen - 96) + 7) / 8 : (plen + 7) / 8;
-    len = 6 + 8 + pb;
+    len = 6 + 8 + pb + (tos != '\0'? 3 : 0);
 
     if(src_plen != 0) {
         spb = v4 ? ((src_plen - 96) + 7) / 8 : (src_plen + 7) / 8;
@@ -2065,10 +2063,10 @@ send_unicast_multihop_request(struct neighbour *neigh,
         else
             accumulate_unicast_bytes(neigh, src_prefix, spb);
     }
-    if (tos != '\0') {
-        accumulate_unicast_byte(neigh, 0xF0);     
-        accumulate_unicast_byte(neigh, 0x08);   
-        accumulate_unicast_byte(neigh, tos);           
+    if (tos != '\0') {   
+        accumulate_unicast_byte(neigh, 0xF0);
+        accumulate_unicast_byte(neigh, 1);
+        accumulate_unicast_byte(neigh, tos);          
     }
     if(src_plen != 0) 
         end_unicast_message(neigh, MESSAGE_MH_REQUEST_SRC_SPECIFIC, len);
