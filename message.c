@@ -173,7 +173,10 @@ parse_update_subtlv(struct interface *ifp, int metric,
                 debugf("Received malformed TOS-specific sub-TLV.\n");
             }
         } else {
-            debugf("Received unknown update sub-TLV %d.\n", type);
+            debugf("Received unknown%s Update sub-TLV %d.\n",
+                   (type & 0x80) != 0 ? " mandatory" : "", type);
+            if((type & 0x80) != 0)
+                return -1;
         }
 
         i += len + 2;
@@ -218,7 +221,10 @@ parse_hello_subtlv(const unsigned char *a, int alen,
                 /* But don't break. */
             }
         } else {
-            debugf("Received unknown Hello sub-TLV type %d.\n", type);
+            debugf("Received unknown%s Hello sub-TLV %d.\n",
+                   (type & 0x80) != 0 ? " mandatory" : "", type);
+            if((type & 0x80) != 0)
+                return -1;
         }
 
         i += len + 2;
@@ -270,7 +276,10 @@ parse_ihu_subtlv(const unsigned char *a, int alen,
                 /* But don't break. */
             }
         } else {
-            debugf("Received unknown IHU sub-TLV type %d.\n", type);
+            debugf("Received unknown%s IHU sub-TLV %d.\n",
+                   (type & 0x80) != 0 ? " mandatory" : "", type);
+            if((type & 0x80) != 0)
+                return -1;
         }
 
         i += len + 2;
@@ -281,6 +290,38 @@ parse_ihu_subtlv(const unsigned char *a, int alen,
     }
     if(have_timestamp_return) {
         *have_timestamp_return = have_timestamp;
+    }
+    return 1;
+}
+
+static int
+parse_other_subtlv(const unsigned char *a, int alen)
+{
+    int type, len, i = 0;
+
+    while(i < alen) {
+        type = a[0];
+        if(type == SUBTLV_PAD1) {
+            i++;
+            continue;
+        }
+
+        if(i + 1 > alen) {
+            fprintf(stderr, "Received truncated sub-TLV on IHU.\n");
+            return -1;
+        }
+        len = a[i + 1];
+        if(i + len > alen) {
+            fprintf(stderr, "Received truncated sub-TLV on IHU.\n");
+            return -1;
+        }
+
+        if((type & 0x80) != 0) {
+            debugf("Received unknown mandatory sub-TLV %d.\n", type);
+            return -1;
+        }
+
+        i += len + 2;
     }
     return 1;
 }
@@ -373,19 +414,27 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                    len, format_address(from), ifp->name);
         } else if(type == MESSAGE_ACK_REQ) {
             unsigned short nonce, interval;
+            int rc;
             if(len < 6) goto fail;
             DO_NTOHS(nonce, message + 4);
             DO_NTOHS(interval, message + 6);
             debugf("Received ack-req (%04X %d) from %s on %s.\n",
                    nonce, interval, format_address(from), ifp->name);
+            rc = parse_other_subtlv(message + 8, len - 6);
+            if(rc < 0)
+                goto done;
             send_ack(neigh, nonce, interval);
         } else if(type == MESSAGE_ACK) {
+            int rc;
             debugf("Received ack from %s on %s.\n",
                    format_address(from), ifp->name);
+            rc = parse_other_subtlv(message + 4, len - 2);
+            if(rc < 0)
+                goto done;
             /* Nothing right now */
         } else if(type == MESSAGE_HELLO) {
             unsigned short seqno, interval;
-            int changed, have_timestamp;
+            int changed, have_timestamp, rc;
             unsigned int timestamp;
             if(len < 6) goto fail;
             DO_NTOHS(seqno, message + 4);
@@ -393,21 +442,20 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             debugf("Received hello %d (%d) from %s on %s.\n",
                    seqno, interval,
                    format_address(from), ifp->name);
+            /* Sub-TLV handling. */
+            rc = parse_hello_subtlv(message + 8, len - 6,
+                                    &timestamp, &have_timestamp);
+            if(rc < 0)
+                goto done;
             changed = update_neighbour(neigh, seqno, interval);
             update_neighbour_metric(neigh, changed);
             if(interval > 0)
                 /* Multiply by 3/2 to allow hellos to expire. */
                 schedule_neighbours_check(interval * 15, 0);
-            /* Sub-TLV handling. */
-            if(len > 8) {
-                int rc;
-                rc = parse_hello_subtlv(message + 8, len - 6,
-                                        &timestamp, &have_timestamp);
-                if(rc >= 0 && have_timestamp) {
-                    neigh->hello_send_us = timestamp;
-                    neigh->hello_rtt_receive_time = now;
-                    have_hello_rtt = 1;
-                }
+            if(have_timestamp) {
+                neigh->hello_send_us = timestamp;
+                neigh->hello_rtt_receive_time = now;
+                have_hello_rtt = 1;
             }
         } else if(type == MESSAGE_IHU) {
             unsigned short txcost, interval;
@@ -423,7 +471,13 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                    format_address(from), ifp->name,
                    format_address(address));
             if(message[2] == 0 || interface_ll_address(ifp, address)) {
-                int changed = txcost != neigh->txcost;
+                int changed;
+                rc = parse_ihu_subtlv(message + 8 + rc, len - 6 - rc,
+                                      &hello_send_us, &hello_rtt_receive_time,
+                                      NULL);
+                if(rc < 0)
+                    goto done;
+                changed = txcost != neigh->txcost;
                 neigh->txcost = txcost;
                 neigh->ihu_time = now;
                 neigh->ihu_interval = interval;
@@ -431,17 +485,16 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 if(interval > 0)
                     /* Multiply by 3/2 to allow neighbours to expire. */
                     schedule_neighbours_check(interval * 45, 0);
-                /* RTT sub-TLV. */
-                if(len > 10 + rc)
-                    parse_ihu_subtlv(message + 8 + rc, len - 6 - rc,
-                                     &hello_send_us, &hello_rtt_receive_time,
-                                     NULL);
             }
         } else if(type == MESSAGE_ROUTER_ID) {
+            int rc;
             if(len < 10) {
                 have_router_id = 0;
                 goto fail;
             }
+            rc = parse_other_subtlv(message + 12, len - 10);
+            if(rc < 0)
+                goto done;
             memcpy(router_id, message + 4, 8);
             have_router_id = 1;
             debugf("Received router-id %s from %s on %s.\n",
@@ -464,6 +517,9 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             debugf("Received nh %s (%d) from %s on %s.\n",
                    format_address(nh), message[2],
                    format_address(from), ifp->name);
+            rc = parse_other_subtlv(message + 4 + rc, len - 2 - rc);
+            if(rc < 0)
+                goto done;
             if(message[2] == 1) {
                 memcpy(v4_nh, nh, 16);
                 have_v4_nh = 1;
@@ -532,6 +588,9 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                    format_address(from), ifp->name);
 
             if(message[2] == 0) {
+                rc = parse_other_subtlv(message + 12, len - 8);
+                if(rc < 0)
+                    goto done;
                 if(metric < 0xFFFF) {
                     fprintf(stderr,
                             "Received wildcard update with finite metric.\n");
@@ -549,13 +608,16 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 nh = neigh->address;
             }
 
+            rc = parse_update_subtlv(ifp, metric, message + 2 + parsed_len,
+                                     len - parsed_len, channels, &channels_len, &tos);
+            if (rc < 0)
+                goto done;
+
             if(message[2] == 1) {
                 if(!ifp->ipv4)
                     goto done;
             }
 
-            parse_update_subtlv(ifp, metric, message + 2 + parsed_len,
-                                len - parsed_len, channels, &channels_len, &tos);
             update_route(router_id, prefix, plen, zeroes, 0, tos, seqno,
                          metric, interval, neigh, nh,
                          channels, channels_len);
@@ -570,6 +632,9 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             debugf("Received request for %s from %s on %s.\n",
                    message[2] == 0 ? "any" : format_prefix(prefix, plen),
                    format_address(from), ifp->name);
+            rc = parse_other_subtlv(message + 4 + rc, len - 2 - rc);
+            if(rc < 0)
+                goto done;
             if(message[2] == 0) {
                 /* If a neighbour is requesting a full route dump from us,
                    we might as well send it an IHU. */
@@ -593,6 +658,9 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             rc = network_prefix(message[2], message[3], 0,
                                 message + 16, NULL, len - 14, prefix);
             if(rc < 0) goto fail;
+            rc = parse_other_subtlv(message + 16 + rc, len - 14 - rc);
+            if(rc < 0)
+                goto done;
             plen = message[3] + (message[2] == 1 ? 96 : 0);
             debugf("Received request (%d) for %s from %s on %s (%s, %d).\n",
                    message[6],
@@ -653,6 +721,9 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 
             if(ae == 0) {
                 debugf("Received invalid Source-Specific wildcard update.\n");
+                rc = parse_other_subtlv(message + 12, len - 8);
+                if(rc < 0)
+                    goto done;
                 retract_neighbour_routes(neigh);
                 goto done;
             } else if(ae == 1) {
@@ -665,13 +736,16 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 nh = neigh->address;
             }
 
+            rc = parse_update_subtlv(ifp, metric, message + 2 + parsed_len,
+                                     len - parsed_len, channels, &channels_len, &tos);
+            if(rc < 0)
+                goto done;
+
             if(ae == 1) {
                 if(!ifp->ipv4)
                     goto done;
             }
 
-            parse_update_subtlv(ifp, metric, message + 2 + parsed_len,
-                                len - parsed_len, channels, &channels_len, &tos);
             update_route(router_id, prefix, plen, src_prefix, src_plen, tos,
                          seqno, metric, interval, neigh, nh,
                          channels, channels_len);
@@ -696,6 +770,9 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             if(ae == 1)
                 src_plen += 96;
             parsed += rc;
+            rc = parse_other_subtlv(message + parsed, len - parsed + 2);
+            if(rc < 0)
+                goto done;
             if(ae == 0) {
                 debugf("Received request for any source-specific "
                        "from %s on %s.\n",
@@ -735,6 +812,10 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             rc = network_prefix(ae, src_plen, 0, message + parsed,
                                 NULL, len + 2 - parsed, src_prefix);
             if(rc < 0) goto fail;
+            parsed += rc;
+            rc = parse_other_subtlv(message + parsed, len - parsed + 2);
+            if(rc < 0)
+                goto done;
             if(ae == 1)
                 src_plen += 96;
             debugf("Received request (%d) for (%s, %s)"
