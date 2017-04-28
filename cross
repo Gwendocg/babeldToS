@@ -1,0 +1,1 @@
+make -j4 CC=arm-linux-gnueabihf-gcc-5 "$@"

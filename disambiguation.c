@@ -316,7 +316,9 @@ kinstall_route(const struct babel_route *route)
  end:
     if(rc < 0) {
         int save = errno;
-        perror("kernel_route(ADD)");
+    char resultat_du_formattage[1024];
+            sprintf(resultat_du_formattage, "bidou kernel_route(ADD) Source : %s Tos : %x", format_prefix(route->src->prefix, route->src->plen), route->src->tos);
+            perror(resultat_du_formattage);
         if(save != EEXIST)
             return -1;
     }
@@ -331,6 +333,7 @@ kuninstall_route(const struct babel_route *route)
     const struct babel_route *rt1 = NULL, *rt2 = NULL;
     struct route_stream *stream = NULL;
     int v4 = v4mapped(route->nexthop);
+    char resultat_du_formattage[1024];
 
     debugf("uninstall_route(%s from %s)\n",
            format_prefix(route->src->prefix, route->src->plen),
@@ -339,7 +342,8 @@ kuninstall_route(const struct babel_route *route)
     if(kernel_disambiguate(v4)) {
         rc = del_route(&zone, route);
         if(rc < 0)
-            perror("kernel_route(FLUSH)");
+            sprintf(resultat_du_formattage, "bidou kernel_route(FLUSH) Source : %s Tos : %x", format_prefix(route->src->prefix, route->src->plen), route->src->tos);
+            perror(resultat_du_formattage);
         return rc;
     }
     /* Remove the route, or change if the route was solving a conflict. */
@@ -349,7 +353,8 @@ kuninstall_route(const struct babel_route *route)
     else
         rc = chg_route(&zone, route, rt1);
     if(rc < 0)
-        perror("kernel_route(FLUSH)");
+        sprintf(resultat_du_formattage, "bidou kernel_route(FLUSH) Source : %s Tos : %x", format_prefix(route->src->prefix, route->src->plen), route->src->tos);
+        perror(resultat_du_formattage);
 
     /* Remove source-specific conflicting routes */
     stream = route_stream(ROUTE_INSTALLED);
@@ -391,7 +396,7 @@ kswitch_routes(const struct babel_route *old, const struct babel_route *new)
     to_zone(old, &zone);
     rc = chg_route(&zone, old, new);
     if(rc < 0) {
-        perror("kernel_route(MODIFY)");
+        perror("bidou kernel_route(MODIFY)");
         return -1;
     }
 
@@ -439,7 +444,7 @@ kchange_route_metric(const struct babel_route *route,
     to_zone(route, &zone);
     rc = chg_route_metric(&zone, route, old_metric, new_metric);
     if(rc < 0) {
-        perror("kernel_route(MODIFY metric)");
+        perror("bidou kernel_route(MODIFY metric)");
         return -1;
     }
 
