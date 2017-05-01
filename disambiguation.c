@@ -42,6 +42,7 @@ struct zone {
     unsigned char dst_plen;
     const unsigned char *src_prefix;
     unsigned char src_plen;
+    unsigned char tos;
 };
 
 /* This function assumes rt1 and rt2 non disjoint. */
@@ -61,6 +62,11 @@ rt_cmp(const struct babel_route *rt1, const struct babel_route *rt2)
         return -1;
     else if(src_st == PST_LESS_SPECIFIC)
         return 1;
+    /*TODO c'est bon ce truc??*/
+    if(r1->tos == 0 && r2->tos != 0)
+        return 1
+    else if(r2->tos == 0 && r1->tos != 0)
+        return -1
     return 0;
 }
 
@@ -77,6 +83,7 @@ min_route(const struct babel_route *r1, const struct babel_route *r2)
 static int
 conflicts(const struct babel_route *rt, const struct babel_route *rt1)
 {
+/*TODO */
     enum prefix_status dst_st, src_st;
     const struct source *r = rt->src, *r1 = rt1->src;
     dst_st = prefix_cmp(r->prefix, r->plen, r1->prefix, r1->plen);
@@ -95,6 +102,7 @@ to_zone(const struct babel_route *rt, struct zone *zone)
     zone->dst_plen = rt->src->plen;
     zone->src_prefix = rt->src->src_prefix;
     zone->src_plen = rt->src->src_plen;
+    zone->tos = rt->src->tos;
     return zone;
 }
 
@@ -104,6 +112,7 @@ static const struct zone*
 inter(const struct babel_route *rt, const struct babel_route *rt1,
       struct zone *zone)
 {
+/*TODO*/
     enum prefix_status dst_st, src_st;
     const struct source *r = rt->src, *r1 = rt1->src;
     dst_st = prefix_cmp(r->prefix, r->plen, r1->prefix, r1->plen);
@@ -136,7 +145,8 @@ zone_equal(const struct zone *z1, const struct zone *z2)
     return z1 && z2 && z1->dst_plen == z2->dst_plen &&
         memcmp(z1->dst_prefix, z2->dst_prefix, 16) == 0 &&
         z1->src_plen == z2->src_plen &&
-        memcmp(z1->src_prefix, z2->src_prefix, 16) == 0;
+        memcmp(z1->src_prefix, z2->src_prefix, 16) == 0 &&
+        z1->tos == z2->tos;
 }
 
 static const struct babel_route *
@@ -208,16 +218,16 @@ is_installed(struct zone *zone)
 {
     return zone != NULL &&
         find_installed_route(zone->dst_prefix, zone->dst_plen,
-                             zone->src_prefix, zone->src_plen, '\0') != NULL;
+                             zone->src_prefix, zone->src_plen, zone->tos) != NULL;
 }
 
 static int
 add_route(const struct zone *zone, const struct babel_route *route)
 {
     int table = find_table(zone->dst_prefix, zone->dst_plen,
-                           zone->src_prefix, zone->src_plen);
+                           zone->src_prefix, zone->src_plen, zone->tos);
     return kernel_route(ROUTE_ADD, table, zone->dst_prefix, zone->dst_plen,
-                        zone->src_prefix, zone->src_plen, route->src->tos,
+                        zone->src_prefix, zone->src_plen, route->tos,
                         route->nexthop,
                         route->neigh->ifp->ifindex,
                         metric_to_kernel(route_metric(route)), NULL, 0, 0, 0);
@@ -227,9 +237,9 @@ static int
 del_route(const struct zone *zone, const struct babel_route *route)
 {
     int table = find_table(zone->dst_prefix, zone->dst_plen,
-                           zone->src_prefix, zone->src_plen);
+                           zone->src_prefix, zone->src_plen, zone->tos);
     return kernel_route(ROUTE_FLUSH, table, zone->dst_prefix, zone->dst_plen,
-                        zone->src_prefix, zone->src_plen, route->src->tos,
+                        zone->src_prefix, zone->src_plen, route->tos,
                         route->nexthop,
                         route->neigh->ifp->ifindex,
                         metric_to_kernel(route_metric(route)), NULL, 0, 0, 0);
@@ -240,9 +250,9 @@ chg_route(const struct zone *zone, const struct babel_route *old,
           const struct babel_route *new)
 {
     int table = find_table(zone->dst_prefix, zone->dst_plen,
-                           zone->src_prefix, zone->src_plen);
+                           zone->src_prefix, zone->src_plen, zone->tos);
     return kernel_route(ROUTE_MODIFY, table, zone->dst_prefix, zone->dst_plen,
-                        zone->src_prefix, zone->src_plen, old->src->tos,
+                        zone->src_prefix, zone->src_plen, old->tos,
                         old->nexthop, old->neigh->ifp->ifindex,
                         metric_to_kernel(route_metric(old)),
                         new->nexthop, new->neigh->ifp->ifindex,
@@ -254,9 +264,9 @@ chg_route_metric(const struct zone *zone, const struct babel_route *route,
                  int old_metric, int new_metric)
 {
     int table = find_table(zone->dst_prefix, zone->dst_plen,
-                           zone->src_prefix, zone->src_plen);
+                           zone->src_prefix, zone->src_plen, zone->tos);
     return kernel_route(ROUTE_MODIFY, table, zone->dst_prefix, zone->dst_plen,
-                        zone->src_prefix, zone->src_plen, route->src->tos,
+                        zone->src_prefix, zone->src_plen, route->tos,
                         route->nexthop, route->neigh->ifp->ifindex,
                         old_metric,
                         route->nexthop, route->neigh->ifp->ifindex,
