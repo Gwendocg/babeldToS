@@ -64,9 +64,9 @@ rt_cmp(const struct babel_route *rt1, const struct babel_route *rt2)
         return 1;
     /*TODO c'est bon ce truc??*/
     if(r1->tos == 0 && r2->tos != 0)
-        return 1
+        return 1;
     else if(r2->tos == 0 && r1->tos != 0)
-        return -1
+        return -1;
     return 0;
 }
 
@@ -225,9 +225,9 @@ static int
 add_route(const struct zone *zone, const struct babel_route *route)
 {
     int table = find_table(zone->dst_prefix, zone->dst_plen,
-                           zone->src_prefix, zone->src_plen, zone->tos);
+                           zone->src_prefix, zone->src_plen);
     return kernel_route(ROUTE_ADD, table, zone->dst_prefix, zone->dst_plen,
-                        zone->src_prefix, zone->src_plen, route->tos,
+                        zone->src_prefix, zone->src_plen, zone->tos,
                         route->nexthop,
                         route->neigh->ifp->ifindex,
                         metric_to_kernel(route_metric(route)), NULL, 0, 0, 0);
@@ -237,9 +237,9 @@ static int
 del_route(const struct zone *zone, const struct babel_route *route)
 {
     int table = find_table(zone->dst_prefix, zone->dst_plen,
-                           zone->src_prefix, zone->src_plen, zone->tos);
+                           zone->src_prefix, zone->src_plen);
     return kernel_route(ROUTE_FLUSH, table, zone->dst_prefix, zone->dst_plen,
-                        zone->src_prefix, zone->src_plen, route->tos,
+                        zone->src_prefix, zone->src_plen, zone->tos,
                         route->nexthop,
                         route->neigh->ifp->ifindex,
                         metric_to_kernel(route_metric(route)), NULL, 0, 0, 0);
@@ -250,9 +250,9 @@ chg_route(const struct zone *zone, const struct babel_route *old,
           const struct babel_route *new)
 {
     int table = find_table(zone->dst_prefix, zone->dst_plen,
-                           zone->src_prefix, zone->src_plen, zone->tos);
+                           zone->src_prefix, zone->src_plen);
     return kernel_route(ROUTE_MODIFY, table, zone->dst_prefix, zone->dst_plen,
-                        zone->src_prefix, zone->src_plen, old->tos,
+                        zone->src_prefix, zone->src_plen, zone->tos,
                         old->nexthop, old->neigh->ifp->ifindex,
                         metric_to_kernel(route_metric(old)),
                         new->nexthop, new->neigh->ifp->ifindex,
@@ -264,9 +264,9 @@ chg_route_metric(const struct zone *zone, const struct babel_route *route,
                  int old_metric, int new_metric)
 {
     int table = find_table(zone->dst_prefix, zone->dst_plen,
-                           zone->src_prefix, zone->src_plen, zone->tos);
+                           zone->src_prefix, zone->src_plen);
     return kernel_route(ROUTE_MODIFY, table, zone->dst_prefix, zone->dst_plen,
-                        zone->src_prefix, zone->src_plen, route->tos,
+                        zone->src_prefix, zone->src_plen, zone->tos,
                         route->nexthop, route->neigh->ifp->ifindex,
                         old_metric,
                         route->nexthop, route->neigh->ifp->ifindex,
