@@ -62,11 +62,6 @@ rt_cmp(const struct babel_route *rt1, const struct babel_route *rt2)
         return -1;
     else if(src_st == PST_LESS_SPECIFIC)
         return 1;
-    /*TODO c'est bon ce truc??*/
-    if(r1->tos == 0 && r2->tos != 0)
-        return 1;
-    else if(r2->tos == 0 && r1->tos != 0)
-        return -1;
     return 0;
 }
 
@@ -83,7 +78,6 @@ min_route(const struct babel_route *r1, const struct babel_route *r2)
 static int
 conflicts(const struct babel_route *rt, const struct babel_route *rt1)
 {
-/*TODO */
     enum prefix_status dst_st, src_st;
     const struct source *r = rt->src, *r1 = rt1->src;
     dst_st = prefix_cmp(r->prefix, r->plen, r1->prefix, r1->plen);
@@ -112,7 +106,6 @@ static const struct zone*
 inter(const struct babel_route *rt, const struct babel_route *rt1,
       struct zone *zone)
 {
-/*TODO*/
     enum prefix_status dst_st, src_st;
     const struct source *r = rt->src, *r1 = rt1->src;
     dst_st = prefix_cmp(r->prefix, r->plen, r1->prefix, r1->plen);

@@ -35,7 +35,7 @@ THE SOFTWARE.
 int src_table_idx = 10;
 int src_table_prio = 100;
 
-/* The table used for non-specific routes is "export_table", therefore, we can
+/* The table used for non source-specific routes is "export_table", therefore, we can
    take the convention of plen == 0 <=> empty table. */
 struct rule {
     unsigned char src[16];
