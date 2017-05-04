@@ -319,9 +319,11 @@ kinstall_route(const struct babel_route *route)
  end:
     if(rc < 0) {
         int save = errno;
-    char resultat_du_formattage[1024];
-            sprintf(resultat_du_formattage, "bidou kernel_route(ADD) Source : %s Tos : %x", format_prefix(route->src->prefix, route->src->plen), route->src->tos);
-            perror(resultat_du_formattage);
+        char buf[1024];
+        snprintf(buf, 1024, "bidou kernel_route(ADD) Source : %s Tos : %x",
+                 format_prefix(route->src->prefix, route->src->plen),
+                 route->src->tos);
+        perror(buf);
         if(save != EEXIST)
             return -1;
     }
@@ -336,7 +338,7 @@ kuninstall_route(const struct babel_route *route)
     const struct babel_route *rt1 = NULL, *rt2 = NULL;
     struct route_stream *stream = NULL;
     int v4 = v4mapped(route->nexthop);
-    char resultat_du_formattage[1024];
+    char buf[1024];
 
     debugf("uninstall_route(%s from %s)\n",
            format_prefix(route->src->prefix, route->src->plen),
@@ -344,9 +346,12 @@ kuninstall_route(const struct babel_route *route)
     to_zone(route, &zone);
     if(kernel_disambiguate(v4)) {
         rc = del_route(&zone, route);
-        if(rc < 0)
-            sprintf(resultat_du_formattage, "bidou kernel_route(FLUSH) Source : %s Tos : %x", format_prefix(route->src->prefix, route->src->plen), route->src->tos);
-            perror(resultat_du_formattage);
+        if(rc < 0) {
+            snprintf(buf, 1024, "bidou kernel_route(FLUSH) Source : %s Tos : %x",
+                     format_prefix(route->src->prefix, route->src->plen),
+                     route->src->tos);
+            perror(buf);
+        }
         return rc;
     }
     /* Remove the route, or change if the route was solving a conflict. */
@@ -355,9 +360,12 @@ kuninstall_route(const struct babel_route *route)
         rc = del_route(&zone, route);
     else
         rc = chg_route(&zone, route, rt1);
-    if(rc < 0)
-        sprintf(resultat_du_formattage, "bidou kernel_route(FLUSH) Source : %s Tos : %x", format_prefix(route->src->prefix, route->src->plen), route->src->tos);
-        perror(resultat_du_formattage);
+    if(rc < 0) {
+        snprintf(buf, 1024, "bidou kernel_route(FLUSH) Source : %s Tos : %x",
+                 format_prefix(route->src->prefix, route->src->plen),
+                 route->src->tos);
+        perror(buf);
+    }
 
     /* Remove source-specific conflicting routes */
     stream = route_stream(ROUTE_INSTALLED);

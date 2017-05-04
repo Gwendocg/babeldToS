@@ -1708,8 +1708,10 @@ send_update(struct interface *ifp, int urgent,
         else
             ifp->last_specific_update_time = now.tv_sec;
     } else {
-        send_update(ifp, urgent, NULL, 0, zeroes, 0, tos);
-        send_update(ifp, urgent, zeroes, 0, NULL, 0, tos);
+        if(tos != 0)
+            fprintf(stderr, "Eek!  Wildcard update with non-zero ToS.\n");
+        send_update(ifp, urgent, NULL, 0, zeroes, 0, 0);
+        send_update(ifp, urgent, zeroes, 0, NULL, 0, 0);
     }
     schedule_update_flush(ifp, urgent);
 }
