@@ -1,0 +1,566 @@
+<?xml version="1.0" encoding="US-ASCII"?>
+<!DOCTYPE rfc SYSTEM "rfc2629.dtd" []>
+<?xml-stylesheet type='text/xsl' href='rfc2629.xslt' ?>
+<?rfc toc="yes"?>
+<?rfc tocdepth="2"?>
+<?rfc symrefs="yes"?>
+<?rfc sortrefs="yes" ?>
+<?rfc compact="yes" ?>
+<rfc category="exp" docName="rfc-tos-specific"
+ipr="trust200902" updates="6126">
+<front>
+<title>TOS-Specific Routing in Babel</title>
+<author fullname="Gwendoline Chouasne" initials="G." surname="Chouasne">
+<organization>PPS, University of Paris-Diderot</organization>
+<address>
+<postal>
+<street>Case 7014</street>
+<city>75205 Paris Cedex 13</city>
+<region></region>
+<code></code>
+<country>France</country>
+</postal>
+<email>gwendoline.chouasne-guillon@ens.fr</email>
+</address>
+</author>
+<author fullname="Juliusz Chroboczek" initials="J." surname="Chroboczek">
+<organization>PPS, University of Paris-Diderot</organization>
+<address>
+<postal>
+<street>Case 7014</street>
+<city>75205 Paris Cedex 13</city>
+<region></region>
+<code></code>
+<country>France</country>
+</postal>
+<email>jch@pps.univ-paris-diderot.fr</email>
+</address>
+</author>
+
+<date day="10" month="May" year="2017"/>
+
+<abstract>
+<t>This document describes extensions to the Babel routing protocol to
+support TOS-specific routing. This version is using mandatory sub-TLVs.</t>
+
+
+</abstract>
+
+</front>
+
+<middle>
+
+<section title="Introduction and background">
+
+<t>Source-specific routing is an extension to traditional next-hop routing
+where packets are routed according to both their destination and their
+source address.  This document describes extensions to the Babel routing
+protocol <xref target="BABEL"/> to support source-specific routing.</t>
+
+//??
+<t>Background information about source-specific routing is provided in
+<xref target="SS-ROUTING"/>.</t>
+
+</section>
+
+<section title="Data Structures">
+
+<t>This extension adds some data to the data structures maintained by
+a Babel node.</t>
+
+<section title="The Source Table">
+
+<t>Every Babel node maintains a source table, as described in <xref
+target="BABEL"/>, Section 3.2.4.  A source-specific Babel node extends
+this table with the following field:
+<list style="symbols">
+<t>the source prefix (sprefix, splen) specifying the source of packets to
+which this entry applies.</t>
+</list>
+If splen is 0, then this is a non-specific entry, and is treated just
+like a source table entry defined by the original Babel protocol.</t>
+
+<t>With this extension the route entry contains a source which itself
+contains a source prefix.  Notwithstanding the accidental similarity in
+their names, these are two very different concepts, and should not be
+confused.</t>
+
+</section>
+
+<section title="The Route Table">
+
+<t>Every Babel node maintains a route table, as described in <xref
+target="BABEL"/>, Section 3.2.5.  With this extension, this table is
+indexed by the 5-tuple (prefix, plen, source prefix, source plen,
+router-id) obtained from the associated source table entry.</t>
+
+</section>
+
+<section title="The Table of Pending Requests">
+
+<t>Every Babel node maintains a table of pending requests, as described
+in <xref target="BABEL"/>, Section 3.2.6.  A source-specific Babel node
+extends this table with the following entry:
+<list style="symbols">
+<t>the source prefix being requested.</t>
+</list></t>
+
+</section>
+
+</section>
+
+</section>
+
+<section title="Data Forwarding">
+
+<t>In next-hop routing, if two routing table entries overlap, then one is
+necessarily more specific than the other; the "longest prefix rule"
+specifies that the most specific applicable routing table entry is chosen.</t>
+
+<t>With source-specific routing, there might no longer be a most specific
+applicable prefix: two routing table entries might match a given packet
+without one necessarily being more specific than the other.  Consider for
+example the following fragment of a routing table:</t>
+<t><list style="empty">
+<t>(2001:DB8:0:1::/64, ::/0, A)</t>
+<t>(::/0, 2001:DB8:0:2::/64, B)</t>
+</list></t>
+<t>This specifies that all packets with destination in 2001:DB8:0:1::/64
+are to be routed through A, while packets with a source in
+2001:DB8:0:2::/64 are to be routed through B.  A packet with source
+2001:DB8:0:2::42 and destination 2001:DB8:0:1::57 matches both rules,
+although neither is more specific than the other.  A choice is necessary,
+and unless the choice being made is the same on all routers in a routing
+domain, persistent routing loops may occur.</t>
+
+<t>A Babel implementation MUST choose routing table entries by using the
+so-called destination-first ordering, where a routing table entry R1 is
+preferred to a routing table entry R2 when either R1's destination prefix
+is more specific than R2's, or the destination prefixes are equal and
+R1's source prefix is more specific than R2's.  (In more formal terms,
+routing table entries are compared using the lexicographic product of the
+destination prefix ordering by the source prefix ordering.)</t>
+
+<t>In practice, this means that a source-specific Babel implementation
+must take care that any lower layer that performs packet forwarding obey
+this semantics.  In particular:
+<list style="symbols">
+<t>If the lower layers implement the destination-first ordering, then the
+Babel implementation MAY use them directly;</t>
+<t>If the lower layers can hold source-specific routes, but not with the
+right semantics, then the Babel implementation MUST disambiguate the
+routing table by using a suitable disambiguation algorithm (see <xref
+target="SS-ROUTING"/> for such an algorithm).</t>
+<t>If the lower layers cannot hold source-specific routes, then a Babel
+implementation SHOULD silently ignore any source-specific routes and MUST
+NOT reannounce them to other nodes.</t>
+</list>
+</t>
+
+</section>
+
+<section title="Protocol Operation">
+
+<t>This extension does not fundamentally change the operation of the Babel
+protocol.  We only described the fundamental differences between the
+original protocol and the extension in this section.  The other mechanism
+described in [BABEL] (Section 3) may be infered by using pairs of
+(destination, source) prefixes instead of just (destination) prefixes.</t>
+
+<section title="Updates">
+
+<t>This extension introduces a new kind of update, the source-specific
+update.  Whenever a source-specific Babel node needs to send an update, it
+checks whether the update is for a source-specific route (a route with
+a source prefix of non-zero length); if that is the case, it MUST send
+a source-specific update (<xref target="ss-update"/>), and otherwise it
+MUST send a non-specific update (<xref target="BABEL"/>, Section
+4.4.9).</t>
+
+<t>Every Babel node maintains a source table, which it updates whenever it
+sends an Update (<xref target="BABEL"/>, Section 3.7.3).
+A source-specific Babel node MUST update the source table not only when it
+sends an update, but also when it sends a source-specific update.</t>
+
+<section title="Encoding of Updates">
+
+<t>Contrary to [BABEL] (see Section 3.5.3), this extension does not allow
+to use address compression for source prefixes.  The compression of
+destination prefixes is also limited: as a source-specific update TLV (an
+Update TLV with source-specific AE values) is ignored by the original
+Babel protocol, such update cannot be used to store a new destination
+prefix.  However, source-specific updates can compress the destination
+prefix using a previous non-specific update.</t>
+
+<t>For the same reason, router-id can't be derived from a source-specific
+update.</t>
+
+<t>The encoding of updates is described in detail in <xref
+target="encoding"/>.</t>
+
+<t>REMARQUE: on pourrait compresser le prefixe source avec le prefixe
+destination par defaut.  En pratique, dans un reseau multihome, les
+prefixes sources seraient sans doute tous ommis.</t>
+
+</section>
+
+<section title="Route Acquisition">
+
+<t>When a non-specific Babel node receives a source-specific update, it
+just ignores it.</t>
+
+<t>When a source-specific Babel node receives a non-specific update, it
+MUST consider this update as a source-specific update with a zero length
+source prefix.  Afterwards, or on receipt of a source-specific update (id,
+prefix, source prefix, seqno, metric), a source-specific Babel node
+behaves as described in [BABEL] Section 3.5.4 with routing entries indexed
+by (neigh, id, prefix, source prefix).</t>
+
+</section>
+
+</section>
+
+<section title="Requests">
+
+<t>This extension does not modify Babel's strategy for sending requests.
+Whenever a Babel node needs to send a request, it checks whether the
+request is for a source-specific route; if it is, it MUST send a request
+with an AE value defined in this document; if it is not, then it MUST send
+a request with an AE value as defined in the original Babel
+specification.</t>
+
+<section title="Wildcard requests">
+
+<t>The Babel protocol provides the ability to request a full routing table
+dump by sending a "wildcard request", a route request with the AE field
+set to 0.  This extension does not modify the semantics of wildcard
+requests: a wildcard request prompts a full routing table dump, both of
+non-specific routes and of source-specific routes.</t>
+
+</section>
+
+</section>
+
+</section>
+
+<section title="Backwards compatibility">
+
+<t>The protocol extension defined in this document is, to a great extent,
+interoperable with the base protocol defined in <xref target="BABEL"/>
+(and all its known extensions).  More precisely, if non-specific routers
+and source-specific routers are mixed in a single routing domain, Babel's
+loop-avoidance properties are preserved, and, in particular, no persistent
+routing loops will occur.  However, unless there is a backbone of
+source-specific routers that connects all source-specific edge routers,
+blackholes might occur.</t>
+
+<section title="Loop-avoidance">
+
+<t>The extension defined in this protocol uses new AE values for
+source-specific routing rather than using sub-TLVs to carry source prefix
+information.  As discussed in Section&nbsp;4 of <xref
+target="BABEL-EXT"/>, this encoding ensures that non-specific routers will
+silently ignore the whole source-specific TLV, which is necessary to avoid
+persistent routing loops in hybrid networks.</t>
+
+<t>Consider two nodes A and B, with A source-specific announcing a route
+to (D,&nbsp;S).  Suppose that B ignores the source information when it
+receives the update, and reannounces it as D.  This is reannounced to A,
+which treats it as (D,&nbsp;::/0).  Packets destined to D but not sourced
+in S will be forwarded by A to B, and by B to A, causing a persistent
+routing loop:</t>
+<figure><artwork><![CDATA[
+    (D,S)            (D,::/0)
+     <--                 <--
+  ------ A ----------------- B
+           -->
+          (D,::/0)
+]]></artwork></figure>
+
+</section>
+
+<section title="Blackholes">
+
+<t>In general, discarding of source-specific routes by non-specific
+routers will cause routing blackholes.  Intuitively, unless there are
+enough non-specific routes in the network, non-specific routers will
+suffer starvation, and discard packets for destinations that are only
+announced by source-specific routers.  A simple yet sufficient condition
+for avoiding blackholes is to build a connected source-specific backbone
+that includes all of the edge routers, and announce a (non-specific)
+default route towards the backbone.</t>
+
+</section>
+
+</section>
+
+<section title="Protocol Encoding" anchor="encoding">
+
+<t>This extension defines two new AE values, and discuss how they modify
+the encoding of the three TLVs carrying prefixes: Update, Route Request
+and Seqno Request.  The other TLVs using an AE field are not candidate to
+carry a source prefix, but an address: they are not extended, and thus
+MUST NOT have the new AE values.  TLVs with unknown AE values are are
+silently ignored by (ordinary) Babel nodes, in accordance with <xref
+target="BABEL-EXT"/>.</t>
+
+<t>The two new values are:
+<list style="symbols">
+<t>AE 4: IPv4 prefixes;</t>
+<t>AE 5: IPv6 prefixes.</t>
+</list>
+</t>
+
+<t>These two new values define the encoding of the prefix field, as
+specified in <xref target="BABEL"/>.  Instead of just carrying the
+destination prefix, they include both the Source Plen and the Source
+Prefix, as below:</t>
+
+<figure><artwork><![CDATA[
+0                   1                   2                   3
+0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  Source Plen  |        Prefix...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
+|        Source prefix...
++-+-+-+-+-+-+-+-+-+-+-+-
+]]></artwork></figure>
+
+Both the prefix and the source prefix are IPv4 prefixes if AE is 4, and
+IPv6 prefixes if AE is 5.  We will now see how this encoding impact the
+Update, Route Request and Seqno Request TLVs.
+
+<section title="Update" anchor="ss-update">
+<figure><artwork><![CDATA[
+0                   1                   2                   3
+0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|   Type = 8    |    Length     |      AE       |   Reserved    |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|      Plen     |    Omitted    |            Interval           |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|             Seqno             |             Metric            |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  Source Plen  |        Prefix...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
+|        Source prefix...
++-+-+-+-+-+-+-+-+-+-+-+-
+]]></artwork></figure>
+
+<t>Unchanged Fields:
+<list style="hanging" hangIndent="10">
+<t hangText="Type">Set to 8 to indicate an Update TLV.</t>
+<t hangText="Length">The length of the body, exclusive of the Type and
+Length fields.</t>
+<t hangText="AE">The encoding of the prefix field.</t>
+<t hangText="Plen">The length of the advertised destination prefix.</t>
+<t hangText="Omitted">The number of octets that have been omitted at the
+beginning of the advertised prefix and that should be taken from
+a preceding Update TLV with the flag with value 80 hexadecimal set.</t>
+<t hangText="Interval">An upper bound, expressed in centiseconds, on the
+time after which the sending node will send a new update for this prefix.
+This MUST NOT be 0 and SHOULD NOT be less than 10.  The receiving node
+will use this value to compute a hold time for this routing table entry.
+The value FFFF hexadecimal (infinity) expresses that this announcement
+will not be repeated unless a request is received.</t>
+<t hangText="Seqno">The originator's sequence number for this update.</t>
+<t hangText="Metric">The sender's metric for this route.  The value FFFF
+hexadecimal (infinity) means that this is a route retraction.</t>
+</list>
+</t>
+
+<t>Changed Fields:
+<list style="hanging" hangIndent="10">
+<t hangText="Flags / Reserved">The Flag field, used for compression in the
+original protocol, is not used in our extension.  It is thus reserved; it
+may be used for later extensions to the Flag field.</t>
+<t hangText="Source Plen">The length of the advertised source prefix.
+This MUST NOT be 0.</t>
+<t hangText="Prefix">The destination prefix being advertised.  This
+field's size is (Plen/8 - Omitted) rounded upwards.</t>
+<t hangText="Source Prefix">The source prefix being advertised.  This
+field's size is (Source Plen)/8 rounded upwards.</t>
+</list>
+</t>
+
+<t>AE values between 0 and 3 are defined in the original protocol.  This
+extention defines values 4 and 5, respectively indicating that the prefixes
+are IPv4 and IPv6.</t>
+
+</section>
+
+<section title="Route Request" anchor="ss-request">
+
+<figure><artwork><![CDATA[
+0                   1                   2                   3
+0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|   Type = 9    |    Length     |      AE       |      Plen     |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  Source Plen  |        Prefix...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
+|        Source prefix...
++-+-+-+-+-+-+-+-+-+-+-+-
+]]></artwork></figure>
+
+<t>Unchanged Fields:
+<list style="hanging" hangIndent="10">
+<t hangText="Type">Set to 9 to indicate a Route Request TLV.</t>
+<t hangText="Length">The length of the body, exclusive of the Type and
+Length fields.</t>
+<t hangText="AE">The encoding of the prefix field.  The value 0 specifies
+that this is a request for a full routing table dump (a wildcard
+request).</t>
+<t hangText="Plen">The length of the requested destination prefix.</t>
+</list>
+</t>
+
+<t>Changed Fields:
+<list style="hanging" hangIndent="10">
+<t hangText="Source Plen">The length of the requested source prefix.
+This MUST NOT be 0.</t>
+<t hangText="Prefix">The destination prefix being requested.  This field's
+size is Plen/8 rounded upwards.</t>
+<t hangText="Source Prefix">The source prefix being advertised.  This
+field's size is (Source Plen)/8 rounded upwards.</t>
+</list></t>
+
+<t>AE values between 0 and 3 are defined in the original protocol.  This
+extention defines values 4 and 5, respectively indicating that the prefixes
+are IPv4 and IPv6.</t>
+
+</section>
+
+<section title="Seqno Request">
+
+<figure><artwork><![CDATA[
+0                   1                   2                   3
+0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|   Type = 10   |    Length     |      AE       |      Plen     |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|             Seqno             |   Hop Count   |   Reserved    |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                                                               |
++                           Router-Id                           +
+|                                                               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  Source Plen  |        Prefix...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
+|        Source prefix...
++-+-+-+-+-+-+-+-+-+-+-+-
+]]></artwork></figure>
+
+<t>Unchanged Fields:
+<list style="hanging" hangIndent="10">
+<t hangText="Type">Set to 10 to indicate a Seqno Request TLV.</t>
+<t hangText="Length">The length of the body, exclusive of the Type and
+Length fields.</t>
+<t hangText="AE">The encoding of the prefix field.  This MUST NOT be 0.</t>
+<t hangText="Plen">The length of the requested destination prefix.</t>
+<t hangText="Seqno">The sequence number that is being requested.</t>
+<t hangText="Hop Count">The maximum number of times that this TLV may be
+forwarded, plus 1.  This MUST NOT be 0.</t>
+<t hangText="Reserved">Sent as 0 and MUST be ignored on reception.</t>
+<t hangText="Router-Id">The Router-ID associated to this route.</t>
+</list>
+</t>
+
+<t>Changed Fields:
+<list style="hanging" hangIndent="10">
+<t hangText="Source Plen">The length of the requested source prefix.
+This MUST NOT be 0.</t>
+<t hangText="Prefix">The destination prefix being requested.  This field's
+size is Plen/8 rounded upwards.</t>
+<t hangText="Source Prefix">The source prefix being advertised.  This
+field's size is "Source Plen"/8 rounded upwards.</t>
+</list>
+</t>
+
+<t>A Seqno Request with 4 or 5 AE values TLV prompts the receiving node to
+send an Update for the route specified by the AE, Plen, Prefix, Source
+Plen and Source Prefix fields, with either a router-id different from what
+is specified by the Router-Id field, or a Seqno no less than what is
+specified by the Seqno field.  If this request cannot be satisfied
+locally, then it is forwarded according to the rules set out in Section
+3.8.1.2 of <xref target="BABEL"/>.</t>
+
+<t>Just like an ordinary Seqno Request, a Source-Specific Seqno Request
+MAY be sent to a multicast address but MUST NOT be forwarded to
+a multicast address and MUST NOT be forwarded to more than one neighbour.
+A Source-Specific Seqno Request MUST NOT be forwarded if its Hop Count
+field is 1.</t>
+
+<t>AE values between 0 and 3 are defined in the original protocol.  This
+extention defines values 4 and 5, respectively indicating that the prefixes
+are IPv4 and IPv6.</t>
+
+</section>
+
+</section>
+
+<section title="IANA Considerations">
+
+<t>IANA is instructed to add the following entries to the "Babel AE"
+registry:</t>
+
+<texttable>
+<ttcol>Type</ttcol><ttcol>Name</ttcol><ttcol>Reference</ttcol>
+<c>4</c><c>Source-specific IPv4 prefixes</c><c>(this document)</c>
+<c>5</c><c>Source-specific IPv6 prefixes</c><c>(this document)</c>
+</texttable>
+
+</section>
+
+<section title="Security considerations">
+
+<t>The extension defined in this document adds three new TLVs that are
+source-specific generalisations of the TLVs already present in the
+original Babel protocol.  It does not by itself change the security
+properties of the protocol.</t>
+
+</section>
+
+</middle>
+
+<back>
+
+<references title="Normative References">
+
+<reference anchor="BABEL"><front>
+<title>The Babel Routing Protocol</title>
+<author fullname="Juliusz Chroboczek" initials="J." surname="Chroboczek"/>
+<date month="February" year="2011"/>
+</front>
+<seriesInfo name="RFC" value="6126"/>
+</reference>
+
+<reference anchor="BABEL-EXT"><front>
+<title>Extension Mechanism for the Babel Routing Protocol</title>
+<author fullname="Juliusz Chroboczek" initials="J." surname="Chroboczek"/>
+<date day="28" month="May" year="2015"/>
+</front>
+<seriesInfo name="RFC" value="7557"/>
+</reference>
+
+</references>
+
+<references title="Informative References">
+
+<reference anchor="SS-ROUTING">
+<front>
+<title>Source-Specific Routing</title>
+<author initials="M." surname="Boutier" fullname="Matthieu Boutier"/>
+<author initials="J." surname="Chroboczek" fullname="Juliusz Chroboczek"/>
+<date year="2014" month="August"/>
+</front>
+<annotation>In Proc. IFIP Networking 2015.  A slightly earlier version
+is available online from http://arxiv.org/pdf/1403.0445.</annotation>
+</reference>
+
+</references>
+
+</back>
+
+</rfc>
+
