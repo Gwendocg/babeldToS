@@ -845,13 +845,8 @@ update_interface_metric(struct interface *ifp)
 
 int correct_tos(unsigned char tos){
     switch (tos){
-        case 1:
-        case 2:
-        case 3:
-        case 12:
-        case 13:
-        case 14:
-        case 15:
+        case 1 ... 3:
+        case 12 ... 15:
             return 0;
         default:
             return 1;
