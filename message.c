@@ -294,6 +294,47 @@ parse_ihu_subtlv(const unsigned char *a, int alen,
     return 1;
 }
 
+
+static int
+parse_request_subtlv(const unsigned char *a, int alen, unsigned char* tos_return)
+{
+    int type, len, i = 0;
+
+    while(i < alen) {
+        type = a[0];
+        if(type == SUBTLV_PAD1) {
+            i++;
+            continue;
+        }
+
+        if(i + 1 > alen) {
+            fprintf(stderr, "Received truncated sub-TLV.\n");
+            return -1;
+        }
+        len = a[i + 1];
+        if(i + len > alen) {
+            fprintf(stderr, "Received truncated sub-TLV.\n");
+            return -1;
+        }
+
+        if(type == SUBTLV_TOS) {
+            if(len == 1) {
+                debugf("Received TOS-specific sub-TLV.\n");
+                *tos_return = a[i + 2];
+            } else {
+                debugf("Received malformed TOS-specific sub-TLV.\n");
+            }
+        }
+        else if((type & 0x80) != 0) {
+            debugf("Received unknown mandatory sub-TLV %d.\n", type);
+            return -1;
+        }
+
+        i += len + 2;
+    }
+    return 1;
+}
+
 static int
 parse_other_subtlv(const unsigned char *a, int alen)
 {
@@ -325,6 +366,10 @@ parse_other_subtlv(const unsigned char *a, int alen)
     }
     return 1;
 }
+
+
+
+
 
 static int
 network_address(int ae, const unsigned char *a, unsigned int len,
@@ -624,6 +669,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
         } else if(type == MESSAGE_REQUEST) {
             unsigned char prefix[16], plen;
             int rc;
+            unsigned char tos = 0;
             if(len < 2) goto fail;
             rc = network_prefix(message[2], message[3], 0,
                                 message + 4, NULL, len - 2, prefix);
@@ -632,7 +678,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             debugf("Received request for %s from %s on %s.\n",
                    message[2] == 0 ? "any" : format_prefix(prefix, plen),
                    format_address(from), ifp->name);
-            rc = parse_other_subtlv(message + 4 + rc, len - 2 - rc);
+            rc = parse_request_subtlv(message + 4 + rc, len - 2 - rc, &tos);
             if(rc < 0)
                 goto done;
             if(message[2] == 0) {
@@ -645,7 +691,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                    shortly after we sent a full update. */
                 if(neigh->ifp->last_update_time <
                    now.tv_sec - MAX(neigh->ifp->hello_interval / 100, 1))
-                    send_update(neigh->ifp, 0, NULL, 0, zeroes, 0, '\0');
+                    send_update(neigh->ifp, 0, NULL, 0, zeroes, 0, tos);
             } else {
                 send_update(neigh->ifp, 0, prefix, plen, zeroes, 0, tos);
             }
@@ -653,12 +699,13 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             unsigned char prefix[16], plen;
             unsigned short seqno;
             int rc;
+            unsigned char tos = 0;
             if(len < 14) goto fail;
             DO_NTOHS(seqno, message + 4);
             rc = network_prefix(message[2], message[3], 0,
                                 message + 16, NULL, len - 14, prefix);
             if(rc < 0) goto fail;
-            rc = parse_other_subtlv(message + 16 + rc, len - 14 - rc);
+            rc = parse_request_subtlv(message + 16 + rc, len - 14 - rc, &tos);
             if(rc < 0)
                 goto done;
             plen = message[3] + (message[2] == 1 ? 96 : 0);
@@ -1661,8 +1708,10 @@ send_update(struct interface *ifp, int urgent,
         else
             ifp->last_specific_update_time = now.tv_sec;
     } else {
-        send_update(ifp, urgent, NULL, 0, zeroes, 0, tos);
-        send_update(ifp, urgent, zeroes, 0, NULL, 0, tos);
+        if(tos != 0)
+            fprintf(stderr, "Eek!  Wildcard update with non-zero ToS.\n");
+        send_update(ifp, urgent, NULL, 0, zeroes, 0, 0);
+        send_update(ifp, urgent, zeroes, 0, NULL, 0, 0);
     }
     schedule_update_flush(ifp, urgent);
 }
@@ -1896,10 +1945,15 @@ send_request(struct interface *ifp,
         return;
     } else if(src_prefix) {
         debugf("sending request to %s for any.\n", ifp->name);
-        start_message(ifp, MESSAGE_REQUEST, 2);
+        start_message(ifp, MESSAGE_REQUEST, 2 + (tos?3:0));
         accumulate_byte(ifp, 0);
         accumulate_byte(ifp, 0);
-        end_message(ifp, MESSAGE_REQUEST, 2);
+        if (tos != '\0') {   
+            accumulate_byte(ifp, 0xF0);
+            accumulate_byte(ifp, 1);
+            accumulate_byte(ifp, tos);          
+        }
+        end_message(ifp, MESSAGE_REQUEST, 2 + (tos?3:0));
         return;
     } else {
         send_request(ifp, NULL, 0, zeroes, 0, tos);
@@ -1973,11 +2027,11 @@ send_unicast_request(struct neighbour *neigh,
     } else if(src_prefix) {
         debugf("sending unicast request to %s for any.\n",
                format_address(neigh->address));
-        rc = start_unicast_message(neigh, MESSAGE_REQUEST, 2);
+        rc = start_unicast_message(neigh, MESSAGE_REQUEST, 2 + (tos?3:0));
         if(rc < 0) return;
         accumulate_unicast_byte(neigh, 0);
         accumulate_unicast_byte(neigh, 0);
-        end_unicast_message(neigh, MESSAGE_REQUEST, 2);
+        end_unicast_message(neigh, MESSAGE_REQUEST, 2 + (tos?3:0));
         return;
     } else {
         send_unicast_request(neigh, NULL, 0, zeroes, 0, tos);

@@ -109,11 +109,10 @@ route_compare(const unsigned char *prefix, unsigned char plen,
             return 1;
     }
 
-    if(tos == 0 && route->src->tos > 0) {
-        return 1;
-    } else if(tos > 0 && route->src->tos == 0) {
+    if(tos < route->src->tos)
         return -1;
-    }
+    else if(tos > route->src->tos)
+        return 1;
 
     return 0;
 }
