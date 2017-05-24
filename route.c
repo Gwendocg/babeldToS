@@ -843,6 +843,21 @@ update_interface_metric(struct interface *ifp)
     }
 }
 
+int correct_tos(unsigned char tos){
+    switch (tos){
+        case 1:
+        case 2:
+        case 3:
+        case 12:
+        case 13:
+        case 14:
+        case 15:
+            return 0;
+        default:
+            return 1;
+    }
+}
+
 /* This is called whenever we receive an update. */
 struct babel_route *
 update_route(const unsigned char *id,
@@ -883,6 +898,9 @@ update_route(const unsigned char *id,
     add_metric = input_filter(id, prefix, plen, src_prefix, src_plen,
                               neigh->address, neigh->ifp->ifindex);
     if(add_metric >= INFINITY)
+        return NULL;
+
+    if (!correct_tos(tos))
         return NULL;
 
     route = find_route(prefix, plen, src_prefix, src_plen, tos, neigh, nexthop);
