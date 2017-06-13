@@ -128,6 +128,7 @@ parse_update_subtlv(struct interface *ifp, int metric,
 {
     int type, len, i = 0;
     int channels_len;
+    *tos_return = 0;
 
     /* This will be overwritten if there's a DIVERSITY_HOPS sub-TLV. */
     if(*channels_len_return < 1 || (ifp->flags & IF_FARAWAY)) {
@@ -299,6 +300,7 @@ static int
 parse_request_subtlv(const unsigned char *a, int alen, unsigned char* tos_return)
 {
     int type, len, i = 0;
+    *tos_return = 0;
 
     while(i < alen) {
         type = a[0];

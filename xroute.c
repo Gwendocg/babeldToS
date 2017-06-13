@@ -225,6 +225,7 @@ filter_address(struct kernel_addr *addr, void *data) {
     route->metric = 0;
     route->ifindex = addr->ifindex;
     route->proto = RTPROT_BABEL_LOCAL;
+    route->tos = 0;
     memset(route->gw, 0, 16);
     ++ *found;
 
