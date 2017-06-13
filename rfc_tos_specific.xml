@@ -52,30 +52,45 @@ support TOS-specific routing. This version is using mandatory sub-TLVs.</t>
 
 <section title="Introduction and background">
 
-<t>The Type of Service (ToS) field defined in IPV4 is used to indicate
+<t>The Type of Service (ToS) is a field belonging to the IPV4 header. It is used to indicate
 the type of routing a packet needs (for example, low-delay or high throughput).</t>
+<t>This document defines an extension to the Babel protocol that allows routers
+to discover routes corresponding to a certain ToS. It enables packets to be routed
+according to their ToS field.</t>
+<t>Previous implementations of ToS-specific routing are described in <xref target="TOS-ROUTING"/></t>
 
 <t>This extension defines an extension to the base Babel protocol defined in 
-<xref target="BABEL"/>. It enables routers to route packets according to 
-their ToS field.</t>
+<xref target="BABEL"/>. It is compatible with it, and maintains the reachability
+of any prefix, even in the case of non-ToS-specific Babel routers interacting with
+ToS-specific Babel routers.</t>
 
-<t>Previous implementations of ToS-specific routing are described in <xref target="TOS-ROUTING"/></t>
+
+</section>
+
+<section title="ToS version">
+
+<t>Several interpretations have been proposed for the ToS field. This extension 
+uses the Differentiated Service Field interpretation, defined in RFC 2474.</t>
+
+<t>This interpretation is compatible with the previous interpretation described
+in RFC 791, called IP Precedence, and the ECN protocol, described in RFC 3168.
+This extension preserves both compatibilities.</t>
 
 </section>
 
 <section title="Data Structures">
 
-<t>This extension needs to add data in the structures maintained by Babel.</t>
+<t>This extension needs Babel to save additional data in the structures it
+maintains.</t>
 
 <section title="The Source Table">
 
-<t>Every Babel node maintains a source table, as described in <xref
-target="BABEL"/>, Section 3.2.4. The implementation of this ToS-specific
-extension of Babel requires to extend this table with the following field:
+<t>The source table maintained by Babel, as described in <xref target="BABEL"/>,
+Section 3.2.4, needs to be extended with the following field:
 <list style="symbols">
 <t>the ToS specifying the ToS of packets to which this entry applies.</t>
 </list>
-<t>If this is a non-ToS-specific entry, then the ToS is set to 0.</t>
+If this is a non-ToS-specific entry, then the ToS is set to 0.</t>
 
 </section>
 
@@ -122,23 +137,46 @@ argorithm (for example the algorithm of M. Boutier <xref target="SS-ROUTING"/>)<
 
 <section title="Protocol Operation">
 
-<t>This extension doesn't change the fundamental operation of Babel. In this
-section we describe the changes of this extension.</t>
+<t>This section describes the changes in the protocol operation required by this
+extension.</t>
+
+<section title="ToS-specific subTLV encoding" anchor="encoding">
+
+<t>This extension defines a new sub-TLV for turning regular Updates, Route Requests
+and Seqno Requests into ToS-specific Updates, Route Requests and Seqno Requests.
+Other TLVs MUST NOT use this sub-TLV.</t>
+
+<t>A node MUST send ToS-specific Update, Route Request and Seqno Request if the ToS 
+is different from 0.  Otherwise, a node MUST send non-ToS-specific Update, Route
+Request and Seqno Request.</t>
+
+<t>The new sub-TLV MUST be used by ToS-specific Update, Route Request and Seqno 
+Request, if the ToS is different from 0. It MUST NOT be used by non-ToS-specific 
+Update, Route Request and Seqno Request. </t>
+
+<t>It is defined as follow:</t>
+
+<figure><artwork><![CDATA[
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  Type  = TBD   |      Length       |        ToS        |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
+]]></artwork></figure>
+
+<t>Fields :</t>
+<t>
+<list>
+<t>Type      Set to TBD to indicate a ToS-specific sub-TLV..</t>
+<t>Length    The length of the body, exclusive of the Type and Length
+             fields. It SHOULD be set to 1.</t>
+<t>ToS       The ToS value</t>
+</list>
+</t>
+
+</section>
 
 <section title="Updates">
-
-<t>This extension introduces a new kind of update, the ToS-specific
-update. A node MUST send ToS-specific updates if the ToS is different
-from 0. Otherwise, a node MUST send non-ToS-specific updates.</t>
-
-<t>The source table MUST be updated whenever an update or a ToS-specific update
-is sent. In both cases, if an entry indexed by (prefix, plen, router-id, ToS), with 
-ToS 0 if the update is non-ToS-specific, exists, it is modified as
- described in section 3.7.3 of <xref target="BABEL"/>. Otherwise, a new 
-entry is created with value (prefix, plen, router-id, ToS, seqno, metric), 
-ToS also being 0 if the update is non-ToS-specific.</t>
-
-<section title="Route Acquisition">
 
 <t>When a non-ToS-specific Babel node receives an update with a ToS-specific
 sub-TLV, it will ignore it, according to the base protocol defined in <xref target="BABEL"/>.</t>
@@ -146,9 +184,16 @@ sub-TLV, it will ignore it, according to the base protocol defined in <xref targ
 <t>When a ToS-specific Babel node receives a non-ToS-specific update, it
 MUST consider this update as a ToS-specific update with ToS 0.</t>
 
-</section>
+<t>The source table MUST be updated whenever an update or a ToS-specific update
+is sent by a node implementing this extension. In both cases, if an entry 
+indexed by (prefix, plen, router-id, ToS), with 
+ToS 0 if the update is non-ToS-specific, exists, it MUST be modified as
+described in section 3.7.3 of <xref target="BABEL"/>. Otherwise, a new 
+entry is created with value (prefix, plen, router-id, ToS, seqno, metric), 
+ToS also being 0 if the update is non-ToS-specific.</t>
 
 </section>
+
 
 <section title="Requests">
 
@@ -158,6 +203,20 @@ then it MUST send the request with the sub-TLV defined in this document if the T
 is different from 0.
 If it is not, it MUST send the request without it.
 </t>
+<t> When a node receives a route request for a prefix (prefix, plen) with
+a ToS-specific sub-TLV with ToS t, it checks its route table for a selected 
+route with this prefix, plen, and with ToS t in the corresponding source. If such a route
+doesn't exist, it MUST send a ToS-specific retraction for that prefix, 
+with a ToS-specific sub-TLV for ToS t.</t>
+<t>When a node receives a seqno request for a prefix (prefix, plen) with
+a ToS-specific sub-TLV with ToS t, it MUST send a ToS-specific update
+with ToS t for a selected route specified by the Plen, Prefix and Source
+ToS field, with either a router-id different from what
+is specified by the Router-Id field, or a Seqno no less than what is
+specified by the Seqno field. It there is no such route in the Route Table,
+it MUST forward the seqno request according to the rules defined in Section
+3.8.1.2 of <xref target="BABEL"/>. </t>
+
 
 </section>
 
@@ -173,7 +232,7 @@ and non-ToS-specific Babel, all packets will reach their destination
 if it is reachable. Non-ToS-specific packets will follow the same routes 
 as if there was only non-ToS-specific routers. ToS-specific packets may
 switch to a non-ToS-specific route if and only if there is no route for
-the required ToS. [TODO est-ce qu'il faut mettre cette dernière phrase? ça dépend de la couche du dessous. en plus il faudrait rajouter que ça ne peut êre que la fin.enfin je sais pas)
+the required ToS.</t>
 
 <section title="Loop-avoidance">
 
@@ -182,145 +241,36 @@ that this bit is set to 1 for all ToS-specific sub-TLV to avoid loops.</t>
 
 <t>As an example, consider two routers A and B, A implementing the 
 ToS-specific Babel extension, and B implementing just the base Babel 
-protocol. Suppose that B has a non-ToS specific default route through C, 
-and A has a non-ToS-specific default route through D and a 
-ToS-specific route for a prefix P and ToS t going through B, like in the following figure. A will 
-eventually send B an update with its ToS-specific route. Suppose that
+protocol. Suppose that A has ToS-specific route for a prefix P and ToS t.
+A will eventually send B an update with its ToS-specific route. Suppose that
 B reads the update TLV but drops the ToS-specific sub-TLV and learns to 
-forward packets for P through A. When a packet with ToS t arrives to A or B,
-it would travel between A and B indefinitely.
-
-
+forward packets for P through A. B will also send an update to A, who will
+treat it as an update for (P, 0). When a packet with ToS t arrives to A or B,
+it will travel between A and B indefinitely, as shown in the figure below.</t>
 
 <figure><artwork><![CDATA[
-                        (P, t)             (::/0, 0)
-                         -->                 -->
-  D ------------------ A ----------------- B ----------------- C
-                   <--
-                 (::/0, 0)
+            (P, 0)        (::/0)
+             -->            <--
+----------- A ----------------- B -----------
+        <--
+      (P, t)
 ]]></artwork></figure>
 
 </section>
 
-<section title="Protocol Encoding" anchor="encoding">
-
-<t>This extension defines a new sub-TLV for turning regular Updates, Route Requests
-and Seqno Requests into ToS-specific Updates, Route Requests
-and Seqno Requests. Other TLVs MUST NOT use this sub-TLV.</t>
-
-<t>The new sub-TLV MUST be used by ToS-specific Update, Route Request
-and Seqno Request, as defined in this document. It is defined as follow:
-
-<figure><artwork><![CDATA[
- 0                   1                   2                   3
- 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|  Type  = 130   |      Length       |        ToS        |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
-]]></artwork></figure>
-
-<t>Fields :</t>
-[TODO faire une jolie liste]
-<list>
-<t>Type      Set to 130 to indicate a ToS-specific sub-TLV..</t>
-<t>Length    The length of the body, exclusive of the Type and Length
-             fields. It SHOULD be set to 1.</t>
-<t>ToS       The ToS value</t>
-</list>
-
-<t>Following is the definition of the new Update, Route Request
-and Seqno Request TLVs.</t>
-
-<section title="Update" anchor="ss-update">
-<figure><artwork><![CDATA[
-0                   1                   2                   3
-0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|   Type = 8    |    Length     |      AE       |   Reserved    |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|      Plen     |    Omitted    |            Interval           |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|             Seqno             |             Metric            |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|  Source Plen  |        Prefix...
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
-|  Type  = 130   |      Length       |        ToS        |
-+-+-+-+-+-+-+-+-+-+-+-+-
-]]></artwork></figure>
-
-<t>All fields are unchanged.</t>
-
 </section>
 
-<section title="Route Request" anchor="ss-request">
-
-<figure><artwork><![CDATA[
-0                   1                   2                   3
-0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|   Type = 9    |    Length     |      AE       |      Plen     |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|  Source Plen  |        Prefix...
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
-|  Type  = 130   |      Length       |        ToS        |
-+-+-+-+-+-+-+-+-+-+-+-+-
-]]></artwork></figure>
-
-<t>All fields are unchanged.</t>
-
-<t> When a node receives a route request for a prefix (prefix, plen) with
-a ToS-specific sub-TLV with ToS t, it checks its route table for a selected 
-route with this prefix, plen, and with ToS t in the corresponding source. If such a route
-doesn't exist, it MUST send a ToS-specific retraction for that prefix, 
-with a ToS-specific sub-TLV for ToS t.</t>
-
-</section>
-
-<section title="Seqno Request">
-
-<figure><artwork><![CDATA[
-0                   1                   2                   3
-0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|   Type = 10   |    Length     |      AE       |      Plen     |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|             Seqno             |   Hop Count   |   Reserved    |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                                                               |
-+                           Router-Id                           +
-|                                                               |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|  Source Plen  |        Prefix...
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
-|  Type  = 130   |      Length       |        ToS        |
-+-+-+-+-+-+-+-+-+-+-+-+-
-]]></artwork></figure>
-
-<t>All fields are unchanged.</t>
-
-<t>When a node receives a seqno request for a prefix (prefix, plen) with
-a ToS-specific sub-TLV with ToS t, it MUST send a ToS-specific update
-with ToS t for a selected route specified by the Plen, Prefix and Source
-ToS field, with either a router-id different from what
-is specified by the Router-Id field, or a Seqno no less than what is
-specified by the Seqno field. It there is no such route in the Route Table,
-it MUST forward the seqno request according to the rules defined in Section
-3.8.1.2 of <xref target="BABEL"/>. </t>
-
-
-</section>
 
 </section>
 
 <section title="IANA Considerations">
 
-[TODO: à vérifier]
 <t>IANA is instructed to add the following entry to the "Babel sub-TLV type"
 registry:</t>
 
 <texttable>
 <ttcol>Type</ttcol><ttcol>Name</ttcol><ttcol>Reference</ttcol>
-<c>130</c><c>ToS-specific TLV</c><c>(this document)</c>
+<c>TBD</c><c>ToS-specific TLV</c><c>(this document)</c>
 </texttable>
 
 </section>
