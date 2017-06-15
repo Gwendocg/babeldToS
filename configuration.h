@@ -47,6 +47,8 @@ struct filter {
     unsigned char *src_prefix;
     unsigned char src_plen;
     unsigned char src_plen_ge, src_plen_le;
+    unsigned char tos;
+    unsigned char tos_ge, tos_le;    
     unsigned char *neigh;
     int proto;                  /* May be negative */
     struct filter_result action;
@@ -64,16 +66,20 @@ void renumber_filters(void);
 int input_filter(const unsigned char *id,
                  const unsigned char *prefix, unsigned short plen,
                  const unsigned char *src_prefix, unsigned short src_plen,
+                 unsigned char tos,
                  const unsigned char *neigh, unsigned int ifindex);
 int output_filter(const unsigned char *id,
                   const unsigned char *prefix, unsigned short plen,
                   const unsigned char *src_prefix, unsigned short src_plen,
+                  unsigned char tos,
                   unsigned int ifindex);
 int redistribute_filter(const unsigned char *prefix, unsigned short plen,
                     const unsigned char *src_prefix, unsigned short src_plen,
+                    unsigned char tos,
                     unsigned int ifindex, int proto,
                     struct filter_result *result);
 int install_filter(const unsigned char *prefix, unsigned short plen,
                    const unsigned char *src_prefix, unsigned short src_plen,
+                   unsigned char tos,
                    struct filter_result *result);
 int finalise_config(void);

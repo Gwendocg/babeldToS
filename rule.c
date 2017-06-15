@@ -176,13 +176,14 @@ find_table_slot(const unsigned char *src, unsigned short src_plen, int *found)
 
 int
 find_table(const unsigned char *dest, unsigned short plen,
-           const unsigned char *src, unsigned short src_plen)
+           const unsigned char *src, unsigned short src_plen,
+           unsigned char tos)
 {
     struct filter_result filter_result = {0};
     struct rule *kr = NULL;
     int i, found;
 
-    install_filter(dest, plen, src, src_plen, &filter_result);
+    install_filter(dest, plen, src, src_plen, tos, &filter_result);
     if(filter_result.table) {
         return filter_result.table;
     } else if(src_plen == 0) {

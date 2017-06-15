@@ -218,7 +218,8 @@ static int
 add_route(const struct zone *zone, const struct babel_route *route)
 {
     int table = find_table(zone->dst_prefix, zone->dst_plen,
-                           zone->src_prefix, zone->src_plen);
+                           zone->src_prefix, zone->src_plen,
+                           zone->tos);
     return kernel_route(ROUTE_ADD, table, zone->dst_prefix, zone->dst_plen,
                         zone->src_prefix, zone->src_plen, zone->tos,
                         route->nexthop,
@@ -230,7 +231,8 @@ static int
 del_route(const struct zone *zone, const struct babel_route *route)
 {
     int table = find_table(zone->dst_prefix, zone->dst_plen,
-                           zone->src_prefix, zone->src_plen);
+                           zone->src_prefix, zone->src_plen,
+                           zone->tos);
     return kernel_route(ROUTE_FLUSH, table, zone->dst_prefix, zone->dst_plen,
                         zone->src_prefix, zone->src_plen, zone->tos,
                         route->nexthop,
@@ -243,7 +245,8 @@ chg_route(const struct zone *zone, const struct babel_route *old,
           const struct babel_route *new)
 {
     int table = find_table(zone->dst_prefix, zone->dst_plen,
-                           zone->src_prefix, zone->src_plen);
+                           zone->src_prefix, zone->src_plen,
+                           zone->tos);
     return kernel_route(ROUTE_MODIFY, table, zone->dst_prefix, zone->dst_plen,
                         zone->src_prefix, zone->src_plen, zone->tos,
                         old->nexthop, old->neigh->ifp->ifindex,
@@ -257,7 +260,8 @@ chg_route_metric(const struct zone *zone, const struct babel_route *route,
                  int old_metric, int new_metric)
 {
     int table = find_table(zone->dst_prefix, zone->dst_plen,
-                           zone->src_prefix, zone->src_plen);
+                           zone->src_prefix, zone->src_plen,
+                           zone->tos);
     return kernel_route(ROUTE_MODIFY, table, zone->dst_prefix, zone->dst_plen,
                         zone->src_prefix, zone->src_plen, zone->tos,
                         route->nexthop, route->neigh->ifp->ifindex,

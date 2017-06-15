@@ -294,6 +294,7 @@ check_xroutes(int send_updates)
         filter_result.src_prefix = NULL;
         redistribute_filter(routes[i].prefix, routes[i].plen,
                             routes[i].src_prefix, routes[i].src_plen,
+                            routes[i].tos,
                             routes[i].ifindex, routes[i].proto,
                             &filter_result);
         if(filter_result.src_prefix) {
@@ -310,6 +311,7 @@ check_xroutes(int send_updates)
         export = 0;
         metric = redistribute_filter(xroutes[i].prefix, xroutes[i].plen,
                                      xroutes[i].src_prefix, xroutes[i].src_plen,
+                                     xroutes[i].tos,
                                      xroutes[i].ifindex, xroutes[i].proto,
                                      NULL);
         if(metric < INFINITY && metric == xroutes[i].metric) {
@@ -355,6 +357,7 @@ check_xroutes(int send_updates)
             continue;
         metric = redistribute_filter(routes[i].prefix, routes[i].plen,
                                      routes[i].src_prefix, routes[i].src_plen,
+                                     routes[i].tos,
                                      routes[i].ifindex, routes[i].proto, NULL);
         if(metric < INFINITY) {
             rc = add_xroute(routes[i].prefix, routes[i].plen,

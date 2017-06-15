@@ -1298,7 +1298,7 @@ really_send_update(struct interface *ifp,
         return;
 
     add_metric = output_filter(id, prefix, plen, src_prefix,
-                               src_plen, ifp->ifindex);
+                               src_plen, tos, ifp->ifindex);
     if(add_metric >= INFINITY)
         return;
 

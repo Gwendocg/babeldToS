@@ -332,6 +332,7 @@ parse_filter(int c, gnc_t gnc, void *closure, struct filter **filter_return)
         return -2;
     filter->plen_le = 128;
     filter->src_plen_le = 128;
+    filter->tos_le = 255;
 
     while(1) {
         c = skip_whitespace(c, gnc, closure);
@@ -365,6 +366,12 @@ parse_filter(int c, gnc_t gnc, void *closure, struct filter **filter_return)
                 filter->af = af;
             else if(filter->af != af)
                 goto error;
+        } else if(strcmp(token, "tos") == 0) {
+            int tos;
+            c = getint(c, &tos, gnc, closure);
+            if(c < -1)
+                goto error;
+            filter->tos = tos;
         } else if(strcmp(token, "eq") == 0) {
             int p;
             c = getint(c, &p, gnc, closure);
@@ -403,6 +410,18 @@ parse_filter(int c, gnc_t gnc, void *closure, struct filter **filter_return)
             if(c < -1)
                 goto error;
             filter->src_plen_ge = MAX(filter->src_plen_ge, p);
+        } else if(strcmp(token, "tos-le") == 0) {
+            int tos;
+            c = getint(c, &tos, gnc, closure);
+            if(c < -1)
+                goto error;
+            filter->tos_le = MIN(filter->tos_le, tos);
+        } else if(strcmp(token, "tos-ge") == 0) {
+            int tos;
+            c = getint(c, &tos, gnc, closure);
+            if(c < -1)
+                goto error;
+            filter->tos_ge = MAX(filter->tos_ge, tos);
         } else if(strcmp(token, "neigh") == 0) {
             unsigned char *neigh = NULL;
             c = getip(c, &neigh, NULL, gnc, closure);
@@ -1174,6 +1193,7 @@ static int
 filter_match(struct filter *f, const unsigned char *id,
              const unsigned char *prefix, unsigned short plen,
              const unsigned char *src_prefix, unsigned short src_plen,
+             unsigned char tos,
              const unsigned char *neigh, unsigned int ifindex, int proto)
 {
     if(f->af) {
@@ -1212,6 +1232,18 @@ filter_match(struct filter *f, const unsigned char *id,
         if(src_plen < f->src_plen_ge)
             return 0;
     }
+    if(f->tos){
+        if(tos != f->tos)
+            return 0;
+    }
+    if(f->tos_ge > 0 || f->tos_le < 255) {
+        if(!tos)
+            return 0;
+        if(tos > f->tos_le)
+            return 0;
+        if(tos < f->tos_ge)
+            return 0;
+    }
     if(f->neigh) {
         if(!neigh || memcmp(f->neigh, neigh, 16) != 0)
             return 0;
@@ -1240,6 +1272,7 @@ static int
 do_filter(struct filter *f, const unsigned char *id,
           const unsigned char *prefix, unsigned short plen,
           const unsigned char *src_prefix, unsigned short src_plen,
+          unsigned char tos,
           const unsigned char *neigh, unsigned int ifindex, int proto,
           struct filter_result *result)
 {
@@ -1247,7 +1280,7 @@ do_filter(struct filter *f, const unsigned char *id,
         memset(result, 0, sizeof(struct filter_result));
 
     while(f) {
-        if(filter_match(f, id, prefix, plen, src_prefix, src_plen,
+        if(filter_match(f, id, prefix, plen, src_prefix, src_plen, tos,
                         neigh, ifindex, proto)) {
             if(result)
                 memcpy(result, &f->action, sizeof(struct filter_result));
@@ -1263,11 +1296,12 @@ int
 input_filter(const unsigned char *id,
              const unsigned char *prefix, unsigned short plen,
              const unsigned char *src_prefix, unsigned short src_plen,
+             unsigned char tos,
              const unsigned char *neigh, unsigned int ifindex)
 {
     int res;
     res = do_filter(input_filters, id, prefix, plen,
-                    src_prefix, src_plen, neigh, ifindex, 0, NULL);
+                    src_prefix, src_plen, tos, neigh, ifindex, 0, NULL);
     if(res < 0)
         res = 0;
     return res;
@@ -1277,11 +1311,12 @@ int
 output_filter(const unsigned char *id,
               const unsigned char *prefix, unsigned short plen,
               const unsigned char *src_prefix, unsigned short src_plen,
+              unsigned char tos,
               unsigned int ifindex)
 {
     int res;
     res = do_filter(output_filters, id, prefix, plen,
-                    src_prefix, src_plen, NULL, ifindex, 0, NULL);
+                    src_prefix, src_plen, tos, NULL, ifindex, 0, NULL);
     if(res < 0)
         res = 0;
     return res;
@@ -1290,12 +1325,13 @@ output_filter(const unsigned char *id,
 int
 redistribute_filter(const unsigned char *prefix, unsigned short plen,
                     const unsigned char *src_prefix, unsigned short src_plen,
+                    unsigned char tos,
                     unsigned int ifindex, int proto,
                     struct filter_result *result)
 {
     int res;
     res = do_filter(redistribute_filters, NULL, prefix, plen,
-                    src_prefix, src_plen, NULL, ifindex, proto, result);
+                    src_prefix, src_plen, tos, NULL, ifindex, proto, result);
     if(res < 0)
         res = INFINITY;
     return res;
@@ -1304,11 +1340,12 @@ redistribute_filter(const unsigned char *prefix, unsigned short plen,
 int
 install_filter(const unsigned char *prefix, unsigned short plen,
                const unsigned char *src_prefix, unsigned short src_plen,
+              unsigned char tos,
                struct filter_result *result)
 {
     int res;
     res = do_filter(install_filters, NULL, prefix, plen,
-                    src_prefix, src_plen, NULL, 0, 0, result);
+                    src_prefix, src_plen, tos, NULL, 0, 0, result);
     if(res < 0)
         res = INFINITY;
     return res;
@@ -1324,6 +1361,7 @@ finalise_config()
     filter->proto = RTPROT_BABEL_LOCAL;
     filter->plen_le = 128;
     filter->src_plen_le = 128;
+    filter->tos_le = 128;
     add_filter(filter, &redistribute_filters);
 
     while(interface_confs) {

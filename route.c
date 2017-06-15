@@ -796,6 +796,7 @@ update_route_metric(struct babel_route *route)
                                       route->src->prefix, route->src->plen,
                                       route->src->src_prefix,
                                       route->src->src_plen,
+                                      route->src->tos,
                                       neigh->address,
                                       neigh->ifp->ifindex);
         change_route_metric(route, route->refmetric,
@@ -890,7 +891,7 @@ update_route(const unsigned char *id,
         return NULL;
 
 
-    add_metric = input_filter(id, prefix, plen, src_prefix, src_plen,
+    add_metric = input_filter(id, prefix, plen, src_prefix, src_plen, tos,
                               neigh->address, neigh->ifp->ifindex);
     if(add_metric >= INFINITY)
         return NULL;

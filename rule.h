@@ -28,6 +28,7 @@ extern int src_table_prio; /* first prio range */
 /* Return the number of the table using src_plen, allocate the table in the
    kernel if necessary. */
 int find_table(const unsigned char *dest, unsigned short plen,
-               const unsigned char *src, unsigned short src_plen);
+               const unsigned char *src, unsigned short src_plen,
+               unsigned char tos);
 void release_tables(void);
 int check_rules(void);
