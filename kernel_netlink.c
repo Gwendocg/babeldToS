@@ -924,6 +924,7 @@ int
 kernel_route(int operation, int table,
              const unsigned char *dest, unsigned short plen,
              const unsigned char *src, unsigned short src_plen,
+             unsigned char tos,
              const unsigned char *gate, int ifindex, unsigned int metric,
              const unsigned char *newgate, int newifindex,
              unsigned int newmetric, int newtable)
@@ -977,11 +978,11 @@ kernel_route(int operation, int table,
            stick with the naive approach, and hope that the window is
            small enough to be negligible. */
         kernel_route(ROUTE_FLUSH, table, dest, plen,
-                     src, src_plen,
+                     src, src_plen, tos,
                      gate, ifindex, metric,
                      NULL, 0, 0, 0);
         rc = kernel_route(ROUTE_ADD, newtable, dest, plen,
-                          src, src_plen,
+                          src, src_plen, tos,
                           newgate, newifindex, newmetric,
                           NULL, 0, 0, 0);
         if(rc < 0) {
@@ -1023,6 +1024,7 @@ kernel_route(int operation, int table,
     rtm->rtm_dst_len = ipv4 ? plen - 96 : plen;
     if(use_src)
         rtm->rtm_src_len = src_plen;
+    rtm->rtm_tos = tos;
     rtm->rtm_table = table;
     rtm->rtm_scope = RT_SCOPE_UNIVERSE;
     if(metric < KERNEL_INFINITY)
@@ -1099,7 +1101,7 @@ parse_kernel_route_rta(struct rtmsg *rtm, int len, struct kernel_route *route)
         route->plen = 96;
     }
     route->proto = rtm->rtm_protocol;
-
+    route->tos = rtm->rtm_tos;
     is_v4 = rtm->rtm_family == AF_INET;
 
     while(RTA_OK(rta, len)) {

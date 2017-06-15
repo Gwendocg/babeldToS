@@ -73,10 +73,12 @@ route_metric_noninterfering(const struct babel_route *route)
 
 struct babel_route *find_route(const unsigned char *prefix, unsigned char plen,
                         const unsigned char *src_prefix, unsigned char src_plen,
+                        unsigned char tos,
                         struct neighbour *neigh, const unsigned char *nexthop);
 struct babel_route *find_installed_route(const unsigned char *prefix,
                         unsigned char plen, const unsigned char *src_prefix,
-                        unsigned char src_plen);
+                        unsigned char src_plen,
+                        unsigned char tos);
 int installed_routes_estimate(void);
 void flush_route(struct babel_route *route);
 void flush_all_routes(void);
@@ -100,6 +102,7 @@ struct babel_route *find_best_route(const unsigned char *prefix,
                                     unsigned char plen,
                                     const unsigned char *src_prefix,
                                     unsigned char src_plen,
+                                    unsigned char tos,
                                     int feasible, struct neighbour *exclude);
 struct babel_route *install_best_route(const unsigned char prefix[16],
                                  unsigned char plen);
@@ -110,6 +113,7 @@ struct babel_route *update_route(const unsigned char *id,
                            const unsigned char *prefix, unsigned char plen,
                            const unsigned char *src_prefix,
                            unsigned char src_plen,
+                           unsigned char tos,
                            unsigned short seqno, unsigned short refmetric,
                            unsigned short interval, struct neighbour *neigh,
                            const unsigned char *nexthop,

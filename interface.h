@@ -26,6 +26,7 @@ struct buffered_update {
     unsigned char src_prefix[16];
     unsigned char plen;
     unsigned char src_plen; /* 0 <=> no src prefix */
+    unsigned char tos;
     unsigned char pad[2];
 };
 
@@ -99,9 +100,11 @@ struct interface {
     char have_buffered_id;
     char have_buffered_nh;
     char have_buffered_prefix;
+    char have_buffered_ToS;
     unsigned char buffered_id[8];
     unsigned char buffered_nh[4];
     unsigned char buffered_prefix[16];
+    /* en vrai je sais pas unsigned char buffered_ToS[1];*/
     unsigned char *sendbuf;
     struct buffered_update *buffered_updates;
     int num_buffered_updates;

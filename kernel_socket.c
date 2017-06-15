@@ -407,6 +407,7 @@ int
 kernel_route(int operation, int table,
              const unsigned char *dest, unsigned short plen,
              const unsigned char *src, unsigned short src_plen,
+             unsigned char tos,
              const unsigned char *gate, int ifindex, unsigned int metric,
              const unsigned char *newgate, int newifindex,
              unsigned int newmetric, int newtable)
@@ -425,6 +426,12 @@ kernel_route(int operation, int table,
 
     /* Source-specific routes are not implemented yet for BSD. */
     if(src_plen > 0) {
+        errno = ENOSYS;
+        return -1;
+    }
+
+    /* ToS-specific routes are not implemented yet for BSD. */
+    if(tos > 0) {
         errno = ENOSYS;
         return -1;
     }

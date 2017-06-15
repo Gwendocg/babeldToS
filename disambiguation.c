@@ -42,6 +42,7 @@ struct zone {
     unsigned char dst_plen;
     const unsigned char *src_prefix;
     unsigned char src_plen;
+    unsigned char tos;
 };
 
 /* This function assumes rt1 and rt2 non disjoint. */
@@ -95,6 +96,7 @@ to_zone(const struct babel_route *rt, struct zone *zone)
     zone->dst_plen = rt->src->plen;
     zone->src_prefix = rt->src->src_prefix;
     zone->src_plen = rt->src->src_plen;
+    zone->tos = rt->src->tos;
     return zone;
 }
 
@@ -136,7 +138,8 @@ zone_equal(const struct zone *z1, const struct zone *z2)
     return z1 && z2 && z1->dst_plen == z2->dst_plen &&
         memcmp(z1->dst_prefix, z2->dst_prefix, 16) == 0 &&
         z1->src_plen == z2->src_plen &&
-        memcmp(z1->src_prefix, z2->src_prefix, 16) == 0;
+        memcmp(z1->src_prefix, z2->src_prefix, 16) == 0 &&
+        z1->tos == z2->tos;
 }
 
 static const struct babel_route *
@@ -208,7 +211,7 @@ is_installed(struct zone *zone)
 {
     return zone != NULL &&
         find_installed_route(zone->dst_prefix, zone->dst_plen,
-                             zone->src_prefix, zone->src_plen) != NULL;
+                             zone->src_prefix, zone->src_plen, zone->tos) != NULL;
 }
 
 static int
@@ -217,7 +220,7 @@ add_route(const struct zone *zone, const struct babel_route *route)
     int table = find_table(zone->dst_prefix, zone->dst_plen,
                            zone->src_prefix, zone->src_plen);
     return kernel_route(ROUTE_ADD, table, zone->dst_prefix, zone->dst_plen,
-                        zone->src_prefix, zone->src_plen,
+                        zone->src_prefix, zone->src_plen, zone->tos,
                         route->nexthop,
                         route->neigh->ifp->ifindex,
                         metric_to_kernel(route_metric(route)), NULL, 0, 0, 0);
@@ -229,7 +232,7 @@ del_route(const struct zone *zone, const struct babel_route *route)
     int table = find_table(zone->dst_prefix, zone->dst_plen,
                            zone->src_prefix, zone->src_plen);
     return kernel_route(ROUTE_FLUSH, table, zone->dst_prefix, zone->dst_plen,
-                        zone->src_prefix, zone->src_plen,
+                        zone->src_prefix, zone->src_plen, zone->tos,
                         route->nexthop,
                         route->neigh->ifp->ifindex,
                         metric_to_kernel(route_metric(route)), NULL, 0, 0, 0);
@@ -242,7 +245,7 @@ chg_route(const struct zone *zone, const struct babel_route *old,
     int table = find_table(zone->dst_prefix, zone->dst_plen,
                            zone->src_prefix, zone->src_plen);
     return kernel_route(ROUTE_MODIFY, table, zone->dst_prefix, zone->dst_plen,
-                        zone->src_prefix, zone->src_plen,
+                        zone->src_prefix, zone->src_plen, zone->tos,
                         old->nexthop, old->neigh->ifp->ifindex,
                         metric_to_kernel(route_metric(old)),
                         new->nexthop, new->neigh->ifp->ifindex,
@@ -256,7 +259,7 @@ chg_route_metric(const struct zone *zone, const struct babel_route *route,
     int table = find_table(zone->dst_prefix, zone->dst_plen,
                            zone->src_prefix, zone->src_plen);
     return kernel_route(ROUTE_MODIFY, table, zone->dst_prefix, zone->dst_plen,
-                        zone->src_prefix, zone->src_plen,
+                        zone->src_prefix, zone->src_plen, zone->tos,
                         route->nexthop, route->neigh->ifp->ifindex,
                         old_metric,
                         route->nexthop, route->neigh->ifp->ifindex,
@@ -316,7 +319,11 @@ kinstall_route(const struct babel_route *route)
  end:
     if(rc < 0) {
         int save = errno;
-        perror("kernel_route(ADD)");
+        char buf[1024];
+        snprintf(buf, 1024, "bidou kernel_route(ADD) Source : %s Tos : %x",
+                 format_prefix(route->src->prefix, route->src->plen),
+                 route->src->tos);
+        perror(buf);
         if(save != EEXIST)
             return -1;
     }
@@ -331,6 +338,7 @@ kuninstall_route(const struct babel_route *route)
     const struct babel_route *rt1 = NULL, *rt2 = NULL;
     struct route_stream *stream = NULL;
     int v4 = v4mapped(route->nexthop);
+    char buf[1024];
 
     debugf("uninstall_route(%s from %s)\n",
            format_prefix(route->src->prefix, route->src->plen),
@@ -338,8 +346,12 @@ kuninstall_route(const struct babel_route *route)
     to_zone(route, &zone);
     if(kernel_disambiguate(v4)) {
         rc = del_route(&zone, route);
-        if(rc < 0)
-            perror("kernel_route(FLUSH)");
+        if(rc < 0) {
+            snprintf(buf, 1024, "bidou kernel_route(FLUSH) Source : %s Tos : %x",
+                     format_prefix(route->src->prefix, route->src->plen),
+                     route->src->tos);
+            perror(buf);
+        }
         return rc;
     }
     /* Remove the route, or change if the route was solving a conflict. */
@@ -348,8 +360,12 @@ kuninstall_route(const struct babel_route *route)
         rc = del_route(&zone, route);
     else
         rc = chg_route(&zone, route, rt1);
-    if(rc < 0)
-        perror("kernel_route(FLUSH)");
+    if(rc < 0) {
+        snprintf(buf, 1024, "bidou kernel_route(FLUSH) Source : %s Tos : %x",
+                 format_prefix(route->src->prefix, route->src->plen),
+                 route->src->tos);
+        perror(buf);
+    }
 
     /* Remove source-specific conflicting routes */
     stream = route_stream(ROUTE_INSTALLED);
@@ -391,7 +407,7 @@ kswitch_routes(const struct babel_route *old, const struct babel_route *new)
     to_zone(old, &zone);
     rc = chg_route(&zone, old, new);
     if(rc < 0) {
-        perror("kernel_route(MODIFY)");
+        perror("bidou kernel_route(MODIFY)");
         return -1;
     }
 
@@ -439,7 +455,7 @@ kchange_route_metric(const struct babel_route *route,
     to_zone(route, &zone);
     rc = chg_route_metric(&zone, route, old_metric, new_metric);
     if(rc < 0) {
-        perror("kernel_route(MODIFY metric)");
+        perror("bidou kernel_route(MODIFY metric)");
         return -1;
     }
 

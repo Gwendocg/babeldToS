@@ -39,6 +39,7 @@ static int
 source_compare(const unsigned char *id,
                const unsigned char *prefix, unsigned char plen,
                const unsigned char *src_prefix, unsigned char src_plen,
+               unsigned char tos,
                const struct source *src)
 {
     int rc;
@@ -60,6 +61,11 @@ source_compare(const unsigned char *id,
     if(rc != 0)
         return rc;
 
+    if(tos < src->tos)
+        return -1;
+    if(tos > src->tos)
+        return 1;
+
     return 0;
 }
 
@@ -67,6 +73,7 @@ static int
 find_source_slot(const unsigned char *id,
                  const unsigned char *prefix, unsigned char plen,
                  const unsigned char *src_prefix, unsigned char src_plen,
+                 unsigned char tos,
                  int *new_return)
 {
     int p, m, g, c;
@@ -81,7 +88,7 @@ find_source_slot(const unsigned char *id,
 
     do {
         m = (p + g) / 2;
-        c = source_compare(id, prefix, plen, src_prefix, src_plen, sources[m]);
+        c = source_compare(id, prefix, plen, src_prefix, src_plen, tos, sources[m]);
         if(c == 0)
             return m;
         else if(c < 0)
@@ -120,10 +127,11 @@ struct source*
 find_source(const unsigned char *id,
             const unsigned char *prefix, unsigned char plen,
             const unsigned char *src_prefix, unsigned char src_plen,
+            unsigned char tos,
             int create, unsigned short seqno)
 {
     int n = -1;
-    int i = find_source_slot(id, prefix, plen, src_prefix, src_plen, &n);
+    int i = find_source_slot(id, prefix, plen, src_prefix, src_plen, tos, &n);
     struct source *src;
 
     if(i >= 0)
@@ -143,6 +151,7 @@ find_source(const unsigned char *id,
     src->plen = plen;
     memcpy(src->src_prefix, src_prefix, 16);
     src->src_plen = src_plen;
+    src->tos = tos;
     src->seqno = seqno;
     src->metric = INFINITY;
     src->time = now.tv_sec;

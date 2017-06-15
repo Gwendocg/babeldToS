@@ -585,7 +585,7 @@ main(int argc, char **argv)
         send_hello(ifp);
         send_wildcard_retraction(ifp);
         send_self_update(ifp);
-        send_request(ifp, NULL, 0, NULL, 0);
+        send_request(ifp, NULL, 0, NULL, 0, 0);
         flushupdates(ifp);
         flushbuf(ifp);
     }
@@ -764,7 +764,7 @@ main(int argc, char **argv)
             if(timeval_compare(&now, &ifp->hello_timeout) >= 0)
                 send_hello(ifp);
             if(timeval_compare(&now, &ifp->update_timeout) >= 0)
-                send_update(ifp, 0, NULL, 0, NULL, 0);
+                send_update(ifp, 0, NULL, 0, NULL, 0, '\0');
             if(timeval_compare(&now, &ifp->update_flush_timeout) >= 0)
                 flushupdates(ifp);
         }
@@ -1058,6 +1058,7 @@ dump_route(FILE *out, struct babel_route *route)
         memcmp(route->nexthop, route->neigh->address, 16) == 0 ?
         NULL : route->nexthop;
     char channels[100];
+    char tos[20];
 
     if(route->channels_len == 0) {
         channels[0] = '\0';
@@ -1074,12 +1075,15 @@ dump_route(FILE *out, struct babel_route *route)
         snprintf(channels + j, 100 - j, ")");
     }
 
-    fprintf(out, "%s%s%s metric %d (%d) refmetric %d id %s "
+    snprintf(tos, 20, " ToS %u", route->src->tos);
+
+    fprintf(out, "%s%s%s%s metric %d (%d) refmetric %d id %s "
             "seqno %d%s age %d via %s neigh %s%s%s%s\n",
             format_prefix(route->src->prefix, route->src->plen),
             route->src->src_plen > 0 ? " from " : "",
             route->src->src_plen > 0 ?
             format_prefix(route->src->src_prefix, route->src->src_plen) : "",
+            route->src->tos > 0 ? tos : "",
             route_metric(route), route_smoothed_metric(route), route->refmetric,
             format_eui64(route->src->id),
             (int)route->seqno,
@@ -1096,11 +1100,14 @@ dump_route(FILE *out, struct babel_route *route)
 static void
 dump_xroute(FILE *out, struct xroute *xroute)
 {
-    fprintf(out, "%s%s%s metric %d (exported)\n",
+    char tos[20];
+    snprintf(tos, 20, " ToS %u", xroute->tos);
+    fprintf(out, "%s%s%s%s metric %d (exported)\n",
             format_prefix(xroute->prefix, xroute->plen),
             xroute->src_plen > 0 ? " from " : "",
             xroute->src_plen > 0 ?
             format_prefix(xroute->src_prefix, xroute->src_plen) : "",
+            xroute->tos > 0 ? tos : "",
             xroute->metric);
 }
 
