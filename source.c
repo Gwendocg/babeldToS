@@ -88,7 +88,8 @@ find_source_slot(const unsigned char *id,
 
     do {
         m = (p + g) / 2;
-        c = source_compare(id, prefix, plen, src_prefix, src_plen, tos, sources[m]);
+        c = source_compare(id, prefix, plen, src_prefix, src_plen,
+                           tos, sources[m]);
         if(c == 0)
             return m;
         else if(c < 0)

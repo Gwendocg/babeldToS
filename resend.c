@@ -39,7 +39,8 @@ struct resend *to_resend = NULL;
 static int
 resend_match(struct resend *resend,
              int kind, const unsigned char *prefix, unsigned char plen,
-             const unsigned char *src_prefix, unsigned char src_plen, unsigned char tos)
+             const unsigned char *src_prefix, unsigned char src_plen,
+             unsigned char tos)
 {
     return (resend->kind == kind &&
             resend->plen == plen && memcmp(resend->prefix, prefix, 16) == 0 &&
@@ -67,7 +68,8 @@ find_resend(int kind, const unsigned char *prefix, unsigned char plen,
     previous = NULL;
     current = to_resend;
     while(current) {
-        if(resend_match(current, kind, prefix, plen, src_prefix, src_plen, tos)) {
+        if(resend_match(current, kind, prefix, plen,
+                        src_prefix, src_plen, tos)) {
             if(previous_return)
                 *previous_return = previous;
             return current;
@@ -321,7 +323,8 @@ do_resend()
                 case RESEND_UPDATE:
                     send_update(resend->ifp, 1,
                                 resend->prefix, resend->plen,
-                                resend->src_prefix, resend->src_plen, resend->tos);
+                                resend->src_prefix, resend->src_plen,
+                                resend->tos);
                     break;
                 default: abort();
                 }

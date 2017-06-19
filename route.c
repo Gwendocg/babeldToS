@@ -226,7 +226,8 @@ insert_route(struct babel_route *route)
     assert(!route->installed);
 
     i = find_route_slot(route->src->prefix, route->src->plen,
-                        route->src->src_prefix, route->src->src_plen, route->src->tos, &n);
+                        route->src->src_prefix, route->src->src_plen,
+                        route->src->tos, &n);
 
     if(i < 0) {
         if(route_slots >= max_route_slots)
@@ -275,7 +276,8 @@ flush_route(struct babel_route *route)
     }
 
     i = find_route_slot(route->src->prefix, route->src->plen,
-                        route->src->src_prefix, route->src->src_plen, route->src->tos, NULL);
+                        route->src->src_prefix, route->src->src_plen,
+                        route->src->tos, NULL);
     assert(i >= 0 && i < route_slots);
 
     local_notify_route(route, LOCAL_FLUSH);
@@ -486,7 +488,8 @@ install_route(struct babel_route *route)
                 "(this shouldn't happen).");
 
     i = find_route_slot(route->src->prefix, route->src->plen,
-                        route->src->src_prefix, route->src->src_plen, route->src->tos, NULL);
+                        route->src->src_prefix, route->src->src_plen,
+                        route->src->tos, NULL);
     assert(i >= 0 && i < route_slots);
 
     if(routes[i] != route && routes[i]->installed) {
@@ -845,13 +848,9 @@ update_interface_metric(struct interface *ifp)
 }
 
 int correct_tos(unsigned char tos){
-    switch (tos){
-        case 1 ... 3:
-        case 12 ... 15:
+    if ((tos >= 1 && tos <= 3) || (tos >= 12 && tos <= 15))
             return 0;
-        default:
-            return 1;
-    }
+    return 1;
 }
 
 /* This is called whenever we receive an update. */
@@ -886,6 +885,9 @@ update_route(const unsigned char *id,
         return NULL;
     }
 
+    if(!correct_tos(tos))
+        return NULL;
+
     is_v4 = v4mapped(prefix);
     if(src_plen != 0 && is_v4 != v4mapped(src_prefix))
         return NULL;
@@ -896,16 +898,14 @@ update_route(const unsigned char *id,
     if(add_metric >= INFINITY)
         return NULL;
 
-    if (!correct_tos(tos))
-        return NULL;
-
     route = find_route(prefix, plen, src_prefix, src_plen, tos, neigh, nexthop);
 
     if(route && memcmp(route->src->id, id, 8) == 0)
         /* Avoid scanning the source table. */
         src = route->src;
     else
-        src = find_source(id, prefix, plen, src_prefix, src_plen, tos, 1, seqno);
+        src = find_source(id, prefix, plen, src_prefix, src_plen,
+                          tos, 1, seqno);
 
     if(src == NULL)
         return NULL;
@@ -1070,7 +1070,8 @@ consider_route(struct babel_route *route)
         return;
 
     xroute = find_xroute(route->src->prefix, route->src->plen,
-                         route->src->src_prefix, route->src->src_plen, route->src->tos);
+                         route->src->src_prefix, route->src->src_plen,
+                         route->src->tos);
     if(xroute && (allow_duplicates < 0 || xroute->metric >= allow_duplicates))
         return;
 
@@ -1099,7 +1100,8 @@ consider_route(struct babel_route *route)
         send_triggered_update(route, installed->src, route_metric(installed));
     else
         send_update(NULL, 1, route->src->prefix, route->src->plen,
-                    route->src->src_prefix, route->src->src_plen, route->src->tos);
+                    route->src->src_prefix, route->src->src_plen,
+                    route->src->tos);
     return;
 }
 
@@ -1167,15 +1169,18 @@ send_triggered_update(struct babel_route *route, struct source *oldsrc,
 
     if(urgent >= 2)
         send_update_resend(NULL, route->src->prefix, route->src->plen,
-                           route->src->src_prefix, route->src->src_plen, route->src->tos);
+                           route->src->src_prefix, route->src->src_plen,
+                           route->src->tos);
     else
         send_update(NULL, urgent, route->src->prefix, route->src->plen,
-                    route->src->src_prefix, route->src->src_plen, route->src->tos);
+                    route->src->src_prefix, route->src->src_plen,
+                    route->src->tos);
 
     if(oldmetric < INFINITY) {
         if(newmetric >= oldmetric + 288) {
             send_request(NULL, route->src->prefix, route->src->plen,
-                         route->src->src_prefix, route->src->src_plen, route->src->tos);
+                         route->src->src_prefix, route->src->src_plen,
+                         route->src->tos);
         }
     }
 }
@@ -1191,7 +1196,8 @@ route_changed(struct babel_route *route,
         /* Do this unconditionally -- microoptimisation is not worth it. */
         better_route =
             find_best_route(route->src->prefix, route->src->plen,
-                            route->src->src_prefix, route->src->src_plen, route->src->tos,
+                            route->src->src_prefix, route->src->src_plen,
+                            route->src->tos,
                             1, NULL);
         if(better_route && route_metric(better_route) < route_metric(route))
             consider_route(better_route);
@@ -1213,7 +1219,8 @@ route_lost(struct source *src, unsigned oldmetric)
 {
     struct babel_route *new_route;
     new_route = find_best_route(src->prefix, src->plen,
-                                src->src_prefix, src->src_plen, src->tos, 1, NULL);
+                                src->src_prefix, src->src_plen,
+                                src->tos, 1, NULL);
     if(new_route) {
         consider_route(new_route);
     } else if(oldmetric < INFINITY) {

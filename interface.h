@@ -104,7 +104,6 @@ struct interface {
     unsigned char buffered_id[8];
     unsigned char buffered_nh[4];
     unsigned char buffered_prefix[16];
-    /* en vrai je sais pas unsigned char buffered_ToS[1];*/
     unsigned char *sendbuf;
     struct buffered_update *buffered_updates;
     int num_buffered_updates;

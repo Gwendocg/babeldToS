@@ -764,7 +764,7 @@ main(int argc, char **argv)
             if(timeval_compare(&now, &ifp->hello_timeout) >= 0)
                 send_hello(ifp);
             if(timeval_compare(&now, &ifp->update_timeout) >= 0)
-                send_update(ifp, 0, NULL, 0, NULL, 0, '\0');
+                send_update(ifp, 0, NULL, 0, NULL, 0, 0);
             if(timeval_compare(&now, &ifp->update_flush_timeout) >= 0)
                 flushupdates(ifp);
         }
@@ -1058,7 +1058,7 @@ dump_route(FILE *out, struct babel_route *route)
         memcmp(route->nexthop, route->neigh->address, 16) == 0 ?
         NULL : route->nexthop;
     char channels[100];
-    char tos[20];
+    char tos[8];
 
     if(route->channels_len == 0) {
         channels[0] = '\0';
@@ -1075,7 +1075,7 @@ dump_route(FILE *out, struct babel_route *route)
         snprintf(channels + j, 100 - j, ")");
     }
 
-    snprintf(tos, 20, " ToS %u", route->src->tos);
+    snprintf(tos, 8, " ToS %u", route->src->tos);
 
     fprintf(out, "%s%s%s%s metric %d (%d) refmetric %d id %s "
             "seqno %d%s age %d via %s neigh %s%s%s%s\n",
@@ -1100,8 +1100,8 @@ dump_route(FILE *out, struct babel_route *route)
 static void
 dump_xroute(FILE *out, struct xroute *xroute)
 {
-    char tos[20];
-    snprintf(tos, 20, " ToS %u", xroute->tos);
+    char tos[8];
+    snprintf(tos, 8, " ToS %u", xroute->tos);
     fprintf(out, "%s%s%s%s metric %d (exported)\n",
             format_prefix(xroute->prefix, xroute->plen),
             xroute->src_plen > 0 ? " from " : "",

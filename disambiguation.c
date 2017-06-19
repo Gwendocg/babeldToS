@@ -211,7 +211,8 @@ is_installed(struct zone *zone)
 {
     return zone != NULL &&
         find_installed_route(zone->dst_prefix, zone->dst_plen,
-                             zone->src_prefix, zone->src_plen, zone->tos) != NULL;
+                             zone->src_prefix, zone->src_plen,
+                             zone->tos) != NULL;
 }
 
 static int
@@ -324,7 +325,7 @@ kinstall_route(const struct babel_route *route)
     if(rc < 0) {
         int save = errno;
         char buf[1024];
-        snprintf(buf, 1024, "bidou kernel_route(ADD) Source : %s Tos : %x",
+        snprintf(buf, 1024, "kernel_route(ADD) Source : %s Tos : %x",
                  format_prefix(route->src->prefix, route->src->plen),
                  route->src->tos);
         perror(buf);
@@ -351,7 +352,7 @@ kuninstall_route(const struct babel_route *route)
     if(kernel_disambiguate(v4)) {
         rc = del_route(&zone, route);
         if(rc < 0) {
-            snprintf(buf, 1024, "bidou kernel_route(FLUSH) Source : %s Tos : %x",
+            snprintf(buf, 1024, "kernel_route(FLUSH) Source : %s Tos : %x",
                      format_prefix(route->src->prefix, route->src->plen),
                      route->src->tos);
             perror(buf);
@@ -365,7 +366,7 @@ kuninstall_route(const struct babel_route *route)
     else
         rc = chg_route(&zone, route, rt1);
     if(rc < 0) {
-        snprintf(buf, 1024, "bidou kernel_route(FLUSH) Source : %s Tos : %x",
+        snprintf(buf, 1024, "kernel_route(FLUSH) Source : %s Tos : %x",
                  format_prefix(route->src->prefix, route->src->plen),
                  route->src->tos);
         perror(buf);
@@ -411,7 +412,7 @@ kswitch_routes(const struct babel_route *old, const struct babel_route *new)
     to_zone(old, &zone);
     rc = chg_route(&zone, old, new);
     if(rc < 0) {
-        perror("bidou kernel_route(MODIFY)");
+        perror("kernel_route(MODIFY)");
         return -1;
     }
 
@@ -459,7 +460,7 @@ kchange_route_metric(const struct babel_route *route,
     to_zone(route, &zone);
     rc = chg_route_metric(&zone, route, old_metric, new_metric);
     if(rc < 0) {
-        perror("bidou kernel_route(MODIFY metric)");
+        perror("kernel_route(MODIFY metric)");
         return -1;
     }
 

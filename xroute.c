@@ -95,7 +95,8 @@ add_xroute(unsigned char prefix[16], unsigned char plen,
            unsigned char tos,
            unsigned short metric, unsigned int ifindex, int proto)
 {
-    struct xroute *xroute = find_xroute(prefix, plen, src_prefix, src_plen, tos);
+    struct xroute *xroute = find_xroute(prefix, plen,
+                                        src_prefix, src_plen, tos);
     if(xroute) {
         if(xroute->metric <= metric)
             return 0;
@@ -337,13 +338,15 @@ check_xroutes(int send_updates)
             src_plen = xroutes[i].src_plen;
             tos = xroutes[i].tos;
             flush_xroute(&xroutes[i]);
-            route = find_best_route(prefix, plen, src_prefix, src_plen, tos, 1, NULL);
+            route = find_best_route(prefix, plen, src_prefix, src_plen,
+                                    tos, 1, NULL);
             if(route)
                 install_route(route);
             /* send_update_resend only records the prefix, so the update
                will only be sent after we perform all of the changes. */
             if(send_updates)
-                send_update_resend(NULL, prefix, plen, src_prefix, src_plen, tos);
+                send_update_resend(NULL, prefix, plen,
+                                   src_prefix, src_plen, tos);
             change = 1;
         } else {
             i++;

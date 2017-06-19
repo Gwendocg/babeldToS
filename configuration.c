@@ -332,7 +332,7 @@ parse_filter(int c, gnc_t gnc, void *closure, struct filter **filter_return)
         return -2;
     filter->plen_le = 128;
     filter->src_plen_le = 128;
-    filter->tos_le = 255;
+    filter->tos = filter->tos_ne = -1;
 
     while(1) {
         c = skip_whitespace(c, gnc, closure);
@@ -366,12 +366,6 @@ parse_filter(int c, gnc_t gnc, void *closure, struct filter **filter_return)
                 filter->af = af;
             else if(filter->af != af)
                 goto error;
-        } else if(strcmp(token, "tos") == 0) {
-            int tos;
-            c = getint(c, &tos, gnc, closure);
-            if(c < -1)
-                goto error;
-            filter->tos = tos;
         } else if(strcmp(token, "eq") == 0) {
             int p;
             c = getint(c, &p, gnc, closure);
@@ -410,18 +404,18 @@ parse_filter(int c, gnc_t gnc, void *closure, struct filter **filter_return)
             if(c < -1)
                 goto error;
             filter->src_plen_ge = MAX(filter->src_plen_ge, p);
-        } else if(strcmp(token, "tos-le") == 0) {
+        } else if(strcmp(token, "tos") == 0) {
             int tos;
             c = getint(c, &tos, gnc, closure);
             if(c < -1)
                 goto error;
-            filter->tos_le = MIN(filter->tos_le, tos);
-        } else if(strcmp(token, "tos-ge") == 0) {
+            filter->tos = tos;
+        } else if(strcmp(token, "tos-ne") == 0) {
             int tos;
             c = getint(c, &tos, gnc, closure);
             if(c < -1)
                 goto error;
-            filter->tos_ge = MAX(filter->tos_ge, tos);
+            filter->tos_ne = tos;
         } else if(strcmp(token, "neigh") == 0) {
             unsigned char *neigh = NULL;
             c = getip(c, &neigh, NULL, gnc, closure);
@@ -1232,18 +1226,10 @@ filter_match(struct filter *f, const unsigned char *id,
         if(src_plen < f->src_plen_ge)
             return 0;
     }
-    if(f->tos){
-        if(tos != f->tos)
+    if(f->tos >= 0 && f->tos <= 255 && tos != f->tos)
             return 0;
-    }
-    if(f->tos_ge > 0 || f->tos_le < 255) {
-        if(!tos)
+    if(f->tos_ne >= 0 && f->tos_ne <= 255 && tos == f->tos_ne)
             return 0;
-        if(tos > f->tos_le)
-            return 0;
-        if(tos < f->tos_ge)
-            return 0;
-    }
     if(f->neigh) {
         if(!neigh || memcmp(f->neigh, neigh, 16) != 0)
             return 0;
@@ -1361,7 +1347,6 @@ finalise_config()
     filter->proto = RTPROT_BABEL_LOCAL;
     filter->plen_le = 128;
     filter->src_plen_le = 128;
-    filter->tos_le = 128;
     add_filter(filter, &redistribute_filters);
 
     while(interface_confs) {
