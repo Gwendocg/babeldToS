@@ -52,7 +52,7 @@ find_xroute(const unsigned char *prefix, unsigned char plen,
         if(xroutes[i].plen == plen &&
            memcmp(xroutes[i].prefix, prefix, 16) == 0 &&
            xroutes[i].src_plen == src_plen &&
-           memcmp(xroutes[i].src_prefix, src_prefix, 16) == 0&&
+           memcmp(xroutes[i].src_prefix, src_prefix, 16) == 0 &&
            xroutes[i].tos == tos)
             return &xroutes[i];
     }

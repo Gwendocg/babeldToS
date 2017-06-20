@@ -1381,7 +1381,7 @@ really_send_update(struct interface *ifp,
     accumulate_bytes(ifp, real_prefix + omit, (real_plen + 7) / 8 - omit);
     if(src_plen != 0)
         accumulate_bytes(ifp, real_src_prefix, (real_src_plen + 7) / 8);
-    /* Note that .an empty channels TLV is different from no such TLV. */
+    /* Note that an empty channels TLV is different from no such TLV. */
     if(channels_len >= 0) {
         accumulate_byte(ifp, 2);
         accumulate_byte(ifp, channels_len);

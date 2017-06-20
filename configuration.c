@@ -326,13 +326,14 @@ parse_filter(int c, gnc_t gnc, void *closure, struct filter **filter_return)
 {
     char *token;
     struct filter *filter;
+    char tos_b, tos_ne_b;
+    tos_b = tos_ne_b = 0;
 
     filter = calloc(1, sizeof(struct filter));
     if(filter == NULL)
         return -2;
     filter->plen_le = 128;
     filter->src_plen_le = 128;
-    filter->tos = filter->tos_ne = -1;
 
     while(1) {
         c = skip_whitespace(c, gnc, closure);
@@ -406,16 +407,20 @@ parse_filter(int c, gnc_t gnc, void *closure, struct filter **filter_return)
             filter->src_plen_ge = MAX(filter->src_plen_ge, p);
         } else if(strcmp(token, "tos") == 0) {
             int tos;
+            tos_b = 1;
             c = getint(c, &tos, gnc, closure);
             if(c < -1)
                 goto error;
-            filter->tos = tos;
+            filter->tos = malloc(sizeof(unsigned char));
+            *(filter->tos) = tos;
         } else if(strcmp(token, "tos-ne") == 0) {
             int tos;
+            tos_ne_b = 1;
             c = getint(c, &tos, gnc, closure);
             if(c < -1)
                 goto error;
-            filter->tos_ne = tos;
+            filter->tos_ne = malloc(sizeof(unsigned char));
+            *(filter->tos_ne) = tos;
         } else if(strcmp(token, "neigh") == 0) {
             unsigned char *neigh = NULL;
             c = getip(c, &neigh, NULL, gnc, closure);
@@ -474,6 +479,7 @@ parse_filter(int c, gnc_t gnc, void *closure, struct filter **filter_return)
                 goto error;
             filter->action.table = table;
         } else {
+            printf("erreur\n");
             goto error;
         }
         free(token);
@@ -486,6 +492,10 @@ parse_filter(int c, gnc_t gnc, void *closure, struct filter **filter_return)
         filter->plen_le += 96;
         filter->plen_ge += 96;
     }
+    if (!tos_b)
+        filter->tos = NULL;
+    if (!tos_ne_b)
+        filter->tos_ne = NULL;
     *filter_return = filter;
     return c;
 
@@ -986,6 +996,7 @@ parse_config_line(int c, gnc_t gnc, void *closure,
            the line is parsable.  Oh, well. */
         goto fail;
     } else if(strcmp(token, "in") == 0) {
+        printf("in!\n");
         struct filter *filter;
         if(config_finalised)
             goto fail;
@@ -1002,6 +1013,7 @@ parse_config_line(int c, gnc_t gnc, void *closure,
             goto fail;
         add_filter(filter, &output_filters);
     } else if(strcmp(token, "redistribute") == 0) {
+        printf("redistribute!\n");
         struct filter *filter;
         if(config_finalised)
             goto fail;
@@ -1226,9 +1238,9 @@ filter_match(struct filter *f, const unsigned char *id,
         if(src_plen < f->src_plen_ge)
             return 0;
     }
-    if(f->tos >= 0 && f->tos <= 255 && tos != f->tos)
+    if(f->tos != NULL && *(f->tos) >= 0 && *(f->tos) <= 255 && tos != *(f->tos))
             return 0;
-    if(f->tos_ne >= 0 && f->tos_ne <= 255 && tos == f->tos_ne)
+    if(f->tos_ne != NULL && *(f->tos_ne) >= 0 && *(f->tos_ne) <= 255 && tos == *(f->tos_ne))
             return 0;
     if(f->neigh) {
         if(!neigh || memcmp(f->neigh, neigh, 16) != 0)
@@ -1264,7 +1276,6 @@ do_filter(struct filter *f, const unsigned char *id,
 {
     if(result)
         memset(result, 0, sizeof(struct filter_result));
-
     while(f) {
         if(filter_match(f, id, prefix, plen, src_prefix, src_plen, tos,
                         neigh, ifindex, proto)) {
