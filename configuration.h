@@ -47,7 +47,7 @@ struct filter {
     unsigned char *src_prefix;
     unsigned char src_plen;
     unsigned char src_plen_ge, src_plen_le;
-    unsigned char tos, tos_ne;   
+    unsigned char *tos, *tos_ne;   
     unsigned char *neigh;
     int proto;                  /* May be negative */
     struct filter_result action;
