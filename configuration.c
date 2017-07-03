@@ -478,10 +478,8 @@ parse_filter(int c, gnc_t gnc, void *closure, struct filter **filter_return)
             if(table <= 0 || table > INFINITY)
                 goto error;
             filter->action.table = table;
-        } else {
-            printf("erreur\n");
+        } else 
             goto error;
-        }
         free(token);
     }
     if(filter->af == 0) {
@@ -996,7 +994,6 @@ parse_config_line(int c, gnc_t gnc, void *closure,
            the line is parsable.  Oh, well. */
         goto fail;
     } else if(strcmp(token, "in") == 0) {
-        printf("in!\n");
         struct filter *filter;
         if(config_finalised)
             goto fail;
@@ -1013,7 +1010,6 @@ parse_config_line(int c, gnc_t gnc, void *closure,
             goto fail;
         add_filter(filter, &output_filters);
     } else if(strcmp(token, "redistribute") == 0) {
-        printf("redistribute!\n");
         struct filter *filter;
         if(config_finalised)
             goto fail;
