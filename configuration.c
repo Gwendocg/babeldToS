@@ -326,14 +326,13 @@ parse_filter(int c, gnc_t gnc, void *closure, struct filter **filter_return)
 {
     char *token;
     struct filter *filter;
-    char tos_b, tos_ne_b;
-    tos_b = tos_ne_b = 0;
 
     filter = calloc(1, sizeof(struct filter));
     if(filter == NULL)
         return -2;
     filter->plen_le = 128;
     filter->src_plen_le = 128;
+    filter->tos = filter->tos_ne = -1;
 
     while(1) {
         c = skip_whitespace(c, gnc, closure);
@@ -407,20 +406,16 @@ parse_filter(int c, gnc_t gnc, void *closure, struct filter **filter_return)
             filter->src_plen_ge = MAX(filter->src_plen_ge, p);
         } else if(strcmp(token, "tos") == 0) {
             int tos;
-            tos_b = 1;
             c = getint(c, &tos, gnc, closure);
             if(c < -1)
                 goto error;
-            filter->tos = malloc(sizeof(unsigned char));
-            *(filter->tos) = tos;
+            filter->tos = tos;
         } else if(strcmp(token, "tos-ne") == 0) {
             int tos;
-            tos_ne_b = 1;
             c = getint(c, &tos, gnc, closure);
             if(c < -1)
                 goto error;
-            filter->tos_ne = malloc(sizeof(unsigned char));
-            *(filter->tos_ne) = tos;
+            filter->tos_ne = tos;
         } else if(strcmp(token, "neigh") == 0) {
             unsigned char *neigh = NULL;
             c = getip(c, &neigh, NULL, gnc, closure);
@@ -491,10 +486,6 @@ parse_filter(int c, gnc_t gnc, void *closure, struct filter **filter_return)
         filter->plen_le += 96;
         filter->plen_ge += 96;
     }
-    if (!tos_b)
-        filter->tos = NULL;
-    if (!tos_ne_b)
-        filter->tos_ne = NULL;
     *filter_return = filter;
     return c;
 
@@ -1235,9 +1226,9 @@ filter_match(struct filter *f, const unsigned char *id,
         if(src_plen < f->src_plen_ge)
             return 0;
     }
-    if(f->tos != NULL && *(f->tos) >= 0 && *(f->tos) <= 255 && tos != *(f->tos))
+    if(f->tos >= 0 && f->tos <= 255 && tos != f->tos)
             return 0;
-    if(f->tos_ne != NULL && *(f->tos_ne) >= 0 && *(f->tos_ne) <= 255 && tos == *(f->tos_ne))
+    if(f->tos_ne >= 0 && f->tos_ne <= 255 && tos != f->tos_ne)
             return 0;
     if(f->neigh) {
         if(!neigh || memcmp(f->neigh, neigh, 16) != 0)

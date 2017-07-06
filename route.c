@@ -848,9 +848,7 @@ update_interface_metric(struct interface *ifp)
 }
 
 int correct_tos(unsigned char tos){
-    if ((tos >= 1 && tos <= 3) || (tos >= 12 && tos <= 15))
-            return 0;
-    return 1;
+    return !(tos & 0xe0);
 }
 
 /* This is called whenever we receive an update. */

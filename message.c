@@ -169,7 +169,7 @@ parse_update_subtlv(struct interface *ifp, int metric,
         } else if(type == SUBTLV_TOS) {
             if(len == 1) {
                 debugf("Received TOS-specific sub-TLV.\n");
-                *tos_return = a[i + 2];
+                *tos_return = a[i + 2] & 0xfc;
             } else {
                 debugf("Received malformed TOS-specific sub-TLV.\n");
             }
@@ -324,7 +324,7 @@ parse_request_subtlv(const unsigned char *a, int alen,
         } else if(type == SUBTLV_TOS) {
             if(len == 1) {
                 debugf("Received TOS-specific sub-TLV.\n");
-                *tos_return = a[i + 2];
+                *tos_return = a[i + 2] & 0xfc;
             } else {
                 debugf("Received malformed TOS-specific sub-TLV.\n");
             }
@@ -716,7 +716,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                    format_prefix(prefix, plen),
                    format_address(from), ifp->name,
                    format_eui64(message + 8), seqno);
-            handle_request(neigh, prefix, plen, zeroes, 0, message[6], tos,
+            handle_request(neigh, prefix, plen, zeroes, 0, tos, message[6],
                            seqno, message + 8);
         } else if(type == MESSAGE_UPDATE_SRC_SPECIFIC) {
 /*This type of messages will disappear because now source-specific updates use
@@ -2259,9 +2259,11 @@ handle_request(struct neighbour *neigh, const unsigned char *prefix,
                 update_myseqno();
             }
         }
+
         send_update(neigh->ifp, 1, prefix, plen, src_prefix, src_plen, tos);
         return;
     }
+
 
     if(route &&
        (memcmp(id, route->src->id, 8) != 0 ||
@@ -2270,8 +2272,9 @@ handle_request(struct neighbour *neigh, const unsigned char *prefix,
         return;
     }
 
-    if(hop_count <= 1)
+    if(hop_count <= 1){
         return;
+    }
 
     if(route && memcmp(id, route->src->id, 8) == 0 &&
        seqno_minus(seqno, route->seqno) > 100) {
@@ -2280,12 +2283,14 @@ handle_request(struct neighbour *neigh, const unsigned char *prefix,
     }
 
     if(request_redundant(neigh->ifp, prefix, plen, src_prefix, src_plen, tos,
-                         seqno, id))
+                         seqno, id)){
         return;
+    }
 
     /* Let's try to forward this request. */
-    if(route && route_metric(route) < INFINITY)
-        successor = route->neigh;
+    if(route && route_metric(route) < INFINITY){
+                successor = route->neigh;
+    }
 
     if(!successor || successor == neigh) {
         /* We were about to forward a request to its requestor.  Try to
@@ -2298,9 +2303,11 @@ handle_request(struct neighbour *neigh, const unsigned char *prefix,
             successor = other_route->neigh;
     }
 
-    if(!successor || successor == neigh)
+    if(!successor || successor == neigh){
         /* Give up */
         return;
+    }
+
 
     send_unicast_multihop_request(successor, prefix, plen,
                                   src_prefix, src_plen, tos,
