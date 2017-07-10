@@ -2272,9 +2272,8 @@ handle_request(struct neighbour *neigh, const unsigned char *prefix,
         return;
     }
 
-    if(hop_count <= 1){
+    if(hop_count <= 1)
         return;
-    }
 
     if(route && memcmp(id, route->src->id, 8) == 0 &&
        seqno_minus(seqno, route->seqno) > 100) {
@@ -2283,14 +2282,12 @@ handle_request(struct neighbour *neigh, const unsigned char *prefix,
     }
 
     if(request_redundant(neigh->ifp, prefix, plen, src_prefix, src_plen, tos,
-                         seqno, id)){
+                         seqno, id))
         return;
-    }
 
     /* Let's try to forward this request. */
-    if(route && route_metric(route) < INFINITY){
+    if(route && route_metric(route) < INFINITY)
                 successor = route->neigh;
-    }
 
     if(!successor || successor == neigh) {
         /* We were about to forward a request to its requestor.  Try to
@@ -2303,10 +2300,9 @@ handle_request(struct neighbour *neigh, const unsigned char *prefix,
             successor = other_route->neigh;
     }
 
-    if(!successor || successor == neigh){
+    if(!successor || successor == neigh)
         /* Give up */
         return;
-    }
 
 
     send_unicast_multihop_request(successor, prefix, plen,
