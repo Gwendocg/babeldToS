@@ -39,6 +39,9 @@ struct resend {
     unsigned short seqno;
     unsigned char id[8];
     struct interface *ifp;
+    struct neighbour **neigh;
+    int neigh_num;
+    unsigned short nonce;
     struct resend *next;
 };
 
@@ -72,3 +75,7 @@ int satisfy_request(const unsigned char *prefix, unsigned char plen,
 void expire_resend(void);
 void recompute_resend_time(void);
 void do_resend(void);
+int find_nonce(const unsigned char *prefix, unsigned char plen,
+            const unsigned char *src_prefix, unsigned char src_plen,
+            unsigned char tos);
+void no_resend(unsigned short nonce, const struct neighbour *neigh);

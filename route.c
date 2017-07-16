@@ -1101,8 +1101,12 @@ consider_route(struct babel_route *route)
 
  install:
     switch_routes(installed, route);
-    if(installed && route->installed)
+    if(installed && route->installed) {
+        no_resend(find_nonce(route->src->prefix, route->src->plen,
+                    route->src->src_prefix, route->src->src_plen,
+                    route->src->tos), NULL);
         send_triggered_update(route, installed->src, route_metric(installed));
+    }
     else
         send_update(NULL, 1, route->src->prefix, route->src->plen,
                     route->src->src_prefix, route->src->src_plen,

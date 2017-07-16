@@ -32,6 +32,7 @@ THE SOFTWARE.
 #include "message.h"
 #include "interface.h"
 #include "configuration.h"
+#include "route.h"
 
 struct timeval resend_time = {0, 0};
 struct resend *to_resend = NULL;
@@ -47,14 +48,6 @@ resend_match(struct resend *resend,
             resend->src_plen == src_plen &&
             resend->tos == tos &&
             memcmp(resend->src_prefix, src_prefix, 16) == 0);
-}
-
-/* This is called by neigh.c when a neighbour is flushed */
-
-void
-flush_resends(struct neighbour *neigh)
-{
-    /* Nothing for now */
 }
 
 static struct resend *
@@ -149,6 +142,24 @@ record_resend(int kind, const unsigned char *prefix, unsigned char plen,
             memcpy(resend->id, id, 8);
         resend->ifp = ifp;
         resend->time = now;
+        if(kind == RESEND_UPDATE) {
+            int neigh_num = 0;
+            struct neighbour *neigh;
+            FOR_ALL_NEIGHBOURS(neigh) {
+                neigh_num++;
+            }
+            resend->neigh = malloc(neigh_num * sizeof(*resend->neigh));
+            if(!resend->neigh) {
+                neigh_num = 0;
+            } else {
+                resend->neigh_num = neigh_num;
+                FOR_ALL_NEIGHBOURS(neigh) {
+                    --neigh_num;
+                    resend->neigh[neigh_num] = neigh;
+                }
+                resend->nonce = random() & 0xFFFF;
+            }
+        }
         resend->next = to_resend;
         to_resend = resend;
     }
@@ -321,10 +332,11 @@ do_resend()
                                           resend->seqno, resend->id, 127);
                     break;
                 case RESEND_UPDATE:
-                    send_update(resend->ifp, 1,
-                                resend->prefix, resend->plen,
-                                resend->src_prefix, resend->src_plen,
-                                resend->tos);
+                    if(resend->neigh) 
+                        send_update(resend->ifp, 1,
+                                 resend->prefix, resend->plen,
+                                 resend->src_prefix, resend->src_plen,
+                                 resend->tos);
                     break;
                 default: abort();
                 }
@@ -335,4 +347,71 @@ do_resend()
         resend = resend->next;
     }
     recompute_resend_time();
+}
+
+int
+find_nonce(const unsigned char *prefix, unsigned char plen,
+            const unsigned char *src_prefix, unsigned char src_plen,
+            unsigned char tos)
+{
+    struct resend *resend = find_resend(RESEND_UPDATE, prefix, plen,
+            src_prefix, src_plen,
+            tos, NULL);
+    return resend ? resend->nonce : -1;
+}
+
+static struct resend *
+flush_neighbour_resend_1(struct resend *previous, struct resend *curr,
+                         const struct neighbour *neigh)
+{
+    int i;
+    if(neigh == NULL) {
+        curr->neigh_num = 0;
+    } else {
+        for(i = 0; i < curr->neigh_num; i++) {
+            if(curr->neigh[i] == neigh) {
+                memcpy(curr->neigh + i, curr->neigh + i + 1,
+                       (curr->neigh_num - 1 - i) * sizeof(*curr->neigh));
+                curr->neigh_num--;
+            }
+        }
+    }
+    if(curr->neigh_num == 0) {
+        struct babel_route *route = find_installed_route(curr->prefix, curr->plen,
+                                        curr->src_prefix, curr->src_plen, 
+                                        curr->tos);
+        if(previous)
+            previous->next = curr->next;
+        else
+            to_resend = curr->next;
+        free(curr->neigh);
+        free(curr);
+        if(route && route->refmetric >= INFINITY)
+            flush_route(route);
+        return previous;
+    }
+    return curr;
+}
+
+/* This is called by neigh.c when a neighbour is flushed */
+void
+flush_resends(struct neighbour *neigh)
+{
+    struct resend *curr = to_resend, *previous = NULL;
+    while(curr) {
+        previous = flush_neighbour_resend_1(previous, curr, neigh);
+        curr = previous ? previous->next : to_resend;
+    }
+}
+
+void
+no_resend(unsigned short nonce, const struct neighbour *neigh)
+{
+    struct resend *curr = to_resend, *previous = NULL;
+    while(curr && curr->nonce != nonce) {
+        previous = curr;
+        curr = curr->next;
+    }
+    if(curr)
+        flush_neighbour_resend_1(previous, curr, neigh);
 }
