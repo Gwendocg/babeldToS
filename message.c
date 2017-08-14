@@ -2006,6 +2006,9 @@ send_request(struct interface *ifp,
         end_message(ifp, MESSAGE_REQUEST, len);
 }
 
+/* Send a request to a well-chosen neighbour and resend.  If there is no
++   good neighbour, send over multicast but only once. */
+
 void
 send_unicast_request(struct neighbour *neigh,
                      const unsigned char *prefix, unsigned char plen,
@@ -2217,21 +2220,25 @@ send_unicast_multihop_request(struct neighbour *neigh,
 }
 
 void
-send_request_resend(struct neighbour *neigh,
-                    const unsigned char *prefix, unsigned char plen,
+send_request_resend(const unsigned char *prefix, unsigned char plen,
                     const unsigned char *src_prefix, unsigned char src_plen,
                     unsigned char tos,
                     unsigned short seqno, unsigned char *id)
 {
-    if(neigh)
+    struct babel_route *route;
+
+    route = find_best_route(prefix, plen, src_prefix, src_plen, tos, 0, NULL);
+
+    if(route) {
+        struct neighbour *neigh = route->neigh;
         send_unicast_multihop_request(neigh, prefix, plen, src_prefix, src_plen,
                                       tos, seqno, id, 127);
-    else
+        record_resend(RESEND_REQUEST, prefix, plen, src_prefix, src_plen, tos, seqno,
+                      id, neigh->ifp, resend_delay);
+    } else {
         send_multihop_request(NULL, prefix, plen, src_prefix, src_plen, tos,
                               seqno, id, 127);
-
-    record_resend(RESEND_REQUEST, prefix, plen, src_prefix, src_plen, tos,
-                  seqno, id, neigh ? neigh->ifp : NULL, resend_delay);
+    }
 }
 
 void

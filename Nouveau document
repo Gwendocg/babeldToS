@@ -1,0 +1,4 @@
+sshiota killall babeld
+sshzeta killall babeld
+sshrho killall babeld
+ssheta killall babeld

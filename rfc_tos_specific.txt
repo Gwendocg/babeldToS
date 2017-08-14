@@ -1,0 +1,448 @@
+
+
+
+
+Network Working Group                                        G. Chouasne
+Internet-Draft                                             J. Chroboczek
+Updates: 6126 (if approved)             PPS, University of Paris-Diderot
+Intended status: Experimental                               May 10, 2017
+Expires: November 11, 2017
+
+
+                     TOS-Specific Routing in Babel
+                            rfc-tos-specific
+
+Abstract
+
+   This document describes an extension to the Babel routing protocol to
+   support TOS-specific routing.  This version is using mandatory sub-
+   TLVs.
+
+Status of This Memo
+
+   This Internet-Draft is submitted in full conformance with the
+   provisions of BCP 78 and BCP 79.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF).  Note that other groups may also distribute
+   working documents as Internet-Drafts.  The list of current Internet-
+   Drafts is at http://datatracker.ietf.org/drafts/current/.
+
+   Internet-Drafts are draft documents valid for a maximum of six months
+   and may be updated, replaced, or obsoleted by other documents at any
+   time.  It is inappropriate to use Internet-Drafts as reference
+   material or to cite them other than as "work in progress."
+
+   This Internet-Draft will expire on November 11, 2017.
+
+Copyright Notice
+
+   Copyright (c) 2017 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents
+   (http://trustee.ietf.org/license-info) in effect on the date of
+   publication of this document.  Please review these documents
+   carefully, as they describe your rights and restrictions with respect
+   to this document.  Code Components extracted from this document must
+   include Simplified BSD License text as described in Section 4.e of
+   the Trust Legal Provisions and are provided without warranty as
+   described in the Simplified BSD License.
+
+
+
+
+Chouasne & Chroboczek   Expires November 11, 2017               [Page 1]
+
+Internet-Draft        TOS-Specific Routing in Babel             May 2017
+
+
+Table of Contents
+
+   1.  Introduction and background . . . . . . . . . . . . . . . . .   2
+   2.  ToS version . . . . . . . . . . . . . . . . . . . . . . . . .   2
+   3.  Data Structures . . . . . . . . . . . . . . . . . . . . . . .   3
+     3.1.  The Source Table  . . . . . . . . . . . . . . . . . . . .   3
+     3.2.  The Table of Pending Requests . . . . . . . . . . . . . .   3
+   4.  ToS-specific sub-TLV  . . . . . . . . . . . . . . . . . . . .   3
+     4.1.  Usage . . . . . . . . . . . . . . . . . . . . . . . . . .   3
+     4.2.  Encoding  . . . . . . . . . . . . . . . . . . . . . . . .   4
+   5.  Protocol Operation  . . . . . . . . . . . . . . . . . . . . .   4
+     5.1.  Updates . . . . . . . . . . . . . . . . . . . . . . . . .   4
+     5.2.  Requests  . . . . . . . . . . . . . . . . . . . . . . . .   5
+   6.  Data Forwarding . . . . . . . . . . . . . . . . . . . . . . .   5
+   7.  Compatibility . . . . . . . . . . . . . . . . . . . . . . . .   6
+     7.1.  IP version  . . . . . . . . . . . . . . . . . . . . . . .   6
+     7.2.  Interaction with non-Tos-specific Babel . . . . . . . . .   6
+     7.3.  Interaction with other known extensions . . . . . . . . .   6
+     7.4.  Remark on the mandatory bit . . . . . . . . . . . . . . .   6
+   8.  todos . . . . . . . . . . . . . . . . . . . . . . . . . . . .   7
+   9.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .   7
+   10. Security considerations . . . . . . . . . . . . . . . . . . .   7
+   11. References  . . . . . . . . . . . . . . . . . . . . . . . . .   7
+     11.1.  Normative References . . . . . . . . . . . . . . . . . .   7
+     11.2.  Informative References . . . . . . . . . . . . . . . . .   8
+   Authors' Addresses  . . . . . . . . . . . . . . . . . . . . . . .   8
+
+1.  Introduction and background
+
+   The Type of Service (ToS) is a field of the IPV4 header.  It is used
+   to indicate the type of routing a packet needs (for example, low-
+   delay or high throughput).
+
+   ToS-specific routing has been implemented for various protocols, as
+   described in [TOS-ROUTING]
+
+   This document defines an extension to the Babel protocol that allows
+   routers to discover routes corresponding to a certain ToS.  It
+   enables packets to be routed according to their ToS field.
+
+   This extension defines an extension to the base Babel protocol
+   defined in [BABEL].  It is compatible and interoperable with it.
+
+2.  ToS version
+
+   Several interpretations have been defined for the ToS field.  This
+   extension uses the Differentiated Service Field interpretation,
+   defined in RFC 2474.
+
+
+
+Chouasne & Chroboczek   Expires November 11, 2017               [Page 2]
+
+Internet-Draft        TOS-Specific Routing in Babel             May 2017
+
+
+   This interpretation is compatible with the previous interpretation
+   described in RFC 791, called IP Precedence, and the ECN protocol,
+   described in RFC 3168.  This extension preserves both
+   compatibilities.
+
+3.  Data Structures
+
+   This extension needs Babel to save additional data in the structures
+   it maintains.
+
+3.1.  The Source Table
+
+   The source table maintained by any Babel node, as described in
+   [BABEL], Section 3.2.4, needs to be extended with the following
+   field:
+
+   o  the ToS specifying the ToS of packets to which this entry applies.
+
+   If it is a non-ToS-specific entry, then the ToS is set to 0.
+
+3.2.  The Table of Pending Requests
+
+   The table of pending requests, maintained by any Babel node, as
+   described in [BABEL], Section 3.2.4, needs to be extended with the
+   following field:
+
+   o  the ToS being requested.
+
+   If it is a non-ToS-specific entry, then the ToS is set to 0.
+
+4.  ToS-specific sub-TLV
+
+   This extension defines a new sub-TLV to add a ToS field to a Babel
+   packet.
+
+4.1.  Usage
+
+   This extension defines a new sub-TLV for turning regular Updates,
+   Route Requests and Seqno Requests into ToS-specific Updates, Route
+   Requests and Seqno Requests.  Other TLVs MUST NOT use this sub-TLV.
+
+   The new sub-TLV MUST be used by ToS-specific Update, Route Request
+   and Seqno Request, if the ToS is different from 0.  It MUST NOT be
+   used by non-ToS-specific Update, Route Request and Seqno Request.
+
+   A node MUST send ToS-specific Update, Route Request and Seqno Request
+   if the ToS is different from 0.  Otherwise, a node MUST send non-ToS-
+   specific Update, Route Request and Seqno Request.
+
+
+
+Chouasne & Chroboczek   Expires November 11, 2017               [Page 3]
+
+Internet-Draft        TOS-Specific Routing in Babel             May 2017
+
+
+   When a non-ToS-specific Babel node receives an Update, Route Request
+   or Seqno Request with a ToS-specific sub-TLV, it will ignore it,
+   according to the base protocol defined in [BABEL].
+
+   When a ToS-specific Babel node receives a non-ToS-specific Update,
+   Route Request or Seqno Request, it MUST consider this update as a
+   ToS-specific Update, Route Request or Seqno Request with ToS 0.
+
+4.2.  Encoding
+
+   The ToS sub-TLV is defined as follow:
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |  Type  = TBD   |      Length       |        ToS        |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
+
+   Fields :
+
+   Type      Set to TBD to indicate a ToS-specific mandatory sub-TLV..
+
+   Length    The length of the body, exclusive of the Type and Length
+             fields.  It MUST be set to 1.
+
+   ToS       The ToS value
+
+   The value TBD has the mandatory bit set to 1 and this sub-TLV must
+   therefore be handled in accordance with Section of [BABEL].  [TODO]
+
+5.  Protocol Operation
+
+   This section describes the changes in the protocol operation required
+   by this extension.
+
+5.1.  Updates
+
+   Whenever an Update or a ToS-specific Update is sent by a node
+   implementing this extension, the source table MUST be updated . In
+   both cases, if an entry indexed by (prefix, plen, router-id, ToS),
+   with ToS 0 if the update is non-ToS-specific, exists, it MUST be
+   modified as described in section 3.7.3 of [BABEL].  Otherwise, a new
+   entry is created with value (prefix, plen, router-id, ToS, seqno,
+   metric), ToS also being 0 if the update is non-ToS-specific.
+
+
+
+
+
+
+
+Chouasne & Chroboczek   Expires November 11, 2017               [Page 4]
+
+Internet-Draft        TOS-Specific Routing in Babel             May 2017
+
+
+5.2.  Requests
+
+   Whenever a node implementing this extension receives a Request or a
+   ToS-specific Request, it MUST add its content to the Pending Requests
+   Table, as described in section 3.2.6 of [BABEL] [TODO chercher la
+   bonne section].  In the case of a non-ToS-specific Request, the ToS
+   used in the entry MUST be 0.
+
+5.2.1.  Route Requests
+
+   When a node receives a Route Request for a prefix (prefix, plen) with
+   a ToS-specific sub-TLV with ToS t, it checks its route table for a
+   selected route with this prefix, plen, and with ToS t in the
+   corresponding source.  If such a route doesn't exist, it MUST send a
+   ToS-specific retraction for that prefix, with a ToS-specific sub-TLV
+   for ToS t.
+
+5.2.2.  Seqno Requests
+
+   When a node receives a Seqno Request for a prefix (prefix, plen) with
+   a ToS-specific sub-TLV with ToS t, it MUST send a ToS-specific update
+   with ToS t for a selected route specified by the Plen, Prefix and
+   Source ToS field, with either a router-id different from what is
+   specified by the Router-Id field, or a Seqno no less than what is
+   specified by the Seqno field.  It there is no such route in the Route
+   Table, it MUST forward the seqno request according to the rules
+   defined in Section 3.8.1.2 of [BABEL].
+
+6.  Data Forwarding
+
+   When a packet for an address A arrives to a node, it may match
+   several routes.  Just like most protocols, the node MUST choose the
+   most specific one.
+
+   However, one needs to define what is the most specific route between
+   one with a prefix including A but no ToS, and one with a less
+   specific prefix, and the ToS required by the packet.
+
+   It is necessary that all routers use the same priority rules between
+   destination and ToS to avoid creating routing loops.
+
+   A Babel implementation with this extension MUST choose the route with
+   the destination-first ordering.  This ordering first considers the
+   routes with the most specific prefixes, and then chooses among them
+   the one with the ToS of the packet.  If it doesn't exist, then it
+   gradually considers the routes with the less specific prefixes, until
+   it finds one with the required ToS.
+
+
+
+
+Chouasne & Chroboczek   Expires November 11, 2017               [Page 5]
+
+Internet-Draft        TOS-Specific Routing in Babel             May 2017
+
+
+   This means that a Babel implementation of this extension must ensure
+   that lower layers observe these semantics.  If they don't, the
+   implementation MUST disambiguate the routing tables by using a
+   suitable algorithm (for example the algorithm of M.  Boutier
+   [SS-ROUTING]).
+
+7.  Compatibility
+
+   The protocol extension defined in this document is interoperable with
+   the base protocol defined in [BABEL].
+
+7.1.  IP version
+
+   This protocol extension is compatible with IPV4 and IPV6.  AE fields
+   MUST be filled accordingly, as described in Section 4.1.3 of [BABEL].
+
+7.2.  Interaction with non-Tos-specific Babel
+
+   In a topology of routers implementing ToS-specific Babel and non-ToS-
+   specific Babel, all packets will reach their destination if it is
+   reachable.  Non-ToS-specific packets will follow the same routes as
+   if ToS-specific routers were non-ToS-specific routers.  ToS-specific
+   packets may switch to a non-ToS-specific route if and only if there
+   is no route for the required ToS.
+
+7.3.  Interaction with other known extensions
+
+   [TODO : a ecrire, mais a definir avant]
+
+7.4.  Remark on the mandatory bit
+
+   This extension uses a mandatory bit on each sub-TLV.  It is necessary
+   that this bit is set to 1 for all ToS-specific sub-TLV to avoid
+   loops, as shown in the following example.
+
+   Consider two neighboring routers A and B, A implementing the ToS-
+   specific Babel extension, and B implementing just the base Babel
+   protocol.  Suppose that A has a ToS-specific route for a prefix P and
+   ToS t.
+
+   B will receive an update from A with this ToS-specific route.
+   Suppose that B reads the update TLV but drops the ToS-specific sub-
+   TLV.  It will now forwards packets for P through A.
+
+   B will then send an update to A, who will treat it as an update for
+   (P, 0), and take B as next-hop for the matching packets.
+
+
+
+
+
+Chouasne & Chroboczek   Expires November 11, 2017               [Page 6]
+
+Internet-Draft        TOS-Specific Routing in Babel             May 2017
+
+
+   When a packet with ToS t arrives to A or B, it will travel between A
+   and B indefinitely, as shown in the figure below.
+
+               (P, 0)          (P)
+                -->            <--
+   ----------- A ----------------- B -----------
+           <--
+         (P, t)
+
+8.  todos
+
+   Compression
+
+   Wildcard requests
+
+9.  IANA Considerations
+
+   IANA is instructed to add the following entry to the "Babel sub-TLV
+   type" registry:
+
+               +------+------------------+-----------------+
+               | Type | Name             | Reference       |
+               +------+------------------+-----------------+
+               | TBD  | ToS-specific TLV | (this document) |
+               +------+------------------+-----------------+
+
+10.  Security considerations
+
+   The extension defined in this protocol defines three new sub-TLVs for
+   defined TLVs.  This extension doesn't alterate any of the security
+   properties of the base protocol.
+
+11.  References
+
+11.1.  Normative References
+
+   [BABEL]    Chroboczek, J., "The Babel Routing Protocol", draft-
+              chroboczek-babel-rfc6126bis-00 (work in progress), July
+              2016.
+
+   [BABEL-EXT]
+              Chroboczek, J., "Extension Mechanism for the Babel Routing
+              Protocol", RFC 7557, May 2015.
+
+
+
+
+
+
+
+
+Chouasne & Chroboczek   Expires November 11, 2017               [Page 7]
+
+Internet-Draft        TOS-Specific Routing in Babel             May 2017
+
+
+11.2.  Informative References
+
+   [SS-ROUTING]
+              Boutier, M. and J. Chroboczek, "Source-Specific Routing",
+              August 2014.
+
+              In Proc.  IFIP Networking 2015.  A slightly earlier
+              version is available online from http://arxiv.org/
+              pdf/1403.0445.
+
+   [TOS-ROUTING]
+              Boutier, M. and J. Chroboczek, "ToS-Specific Routing",
+              August 2014.
+
+              [TODO mettre un bo article qui parle de ToS]
+
+Authors' Addresses
+
+   Gwendoline Chouasne
+   PPS, University of Paris-Diderot
+   Case 7014
+   75205 Paris Cedex 13
+   France
+
+   Email: gwendoline.chouasne-guillon@ens.fr
+
+
+   Juliusz Chroboczek
+   PPS, University of Paris-Diderot
+   Case 7014
+   75205 Paris Cedex 13
+   France
+
+   Email: jch@pps.univ-paris-diderot.fr
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Chouasne & Chroboczek   Expires November 11, 2017               [Page 8]
